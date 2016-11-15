@@ -38,7 +38,7 @@ int main() {
         wait(0.2);
 
         for (auto i2c : i2cs) {
-            // 0x2C06
+            // Start measurement with clock stretching and high repeatability
             int error = send_command(i2c, SHT3X_I2C_ADDR, 0x2C06);
             if (error) {
                 printf("i2c.write failed: %i\n", error);
