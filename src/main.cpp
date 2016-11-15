@@ -1,7 +1,7 @@
 #include "mbed.h"
 #include <functional>
 
-uint8_t sht3x_i2c_addr = 0x45<<1;
+uint8_t SHT3X_I2C_ADDR = 0x45<<1;
 
 float calculate_temp(char msb, char lsb) {
     return -45.0f + 175.0f * (msb<<8 | lsb) / 65535.0f;
@@ -39,7 +39,7 @@ int main() {
 
         for (auto i2c : i2cs) {
             // 0x2C06
-            int error = send_command(i2c, sht3x_i2c_addr, 0x2C06);
+            int error = send_command(i2c, SHT3X_I2C_ADDR, 0x2C06);
             if (error) {
                 printf("i2c.write failed: %i\n", error);
             }
@@ -48,7 +48,7 @@ int main() {
 
         for (auto i2c : i2cs) {
             char data[6] = {};
-            int error = i2c.get().read(sht3x_i2c_addr, data, 6);
+            int error = i2c.get().read(SHT3X_I2C_ADDR, data, 6);
             if (error) {
                 printf("i2c.get().read failed: %i\n", error);
             }
