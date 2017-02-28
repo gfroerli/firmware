@@ -12,5 +12,5 @@ public:
     void write_byte(uint8_t byte);
     uint8_t read_byte();
 private:
-    PinName _pin;
+    DigitalInOut _pin;
 };
