@@ -2,10 +2,10 @@
 
 void OneWire::reset()
 {
-    DigitalOut temperature_pin(_pin);
-    temperature_pin = 0;
+    _pin.output();
+    _pin = 0;
     wait_us(500);
-    DigitalIn temperature_pin_in(_pin);
+    _pin.input();
     wait_us(500);
 }
 
@@ -19,18 +19,18 @@ void OneWire::write_byte(unsigned char d)
         // test least sig bit
         if (d & 0x01)
         {
-            DigitalOut temperature_pin(_pin);
-            temperature_pin = 0;
+            _pin.output();
+            _pin = 0;
             wait_us(5);
-            DigitalIn temperature_pin_in(_pin);
+            _pin.input();
             wait_us(60);
         }
         else
         {
-            DigitalOut temperature_pin(_pin);
-            temperature_pin = 0;
+            _pin.output();
+            _pin = 0;
             wait_us(60);
-            DigitalIn temperature_pin_in(_pin);
+            _pin.input();
         }
         // now the next bit is in the least sig bit position.
         d = d >> 1;
@@ -45,12 +45,12 @@ unsigned char OneWire::read_byte()
 
     for (uint8_t n = 0; n < 8; n++)
     {
-        DigitalOut temperature_pin(_pin);
-        temperature_pin = 0;
+        _pin.output();
+        _pin = 0;
         wait_us(5);
-        DigitalIn temperature_pin_in(_pin);
+        _pin.input();
         wait_us(5);
-        uint8_t b = temperature_pin_in;
+        uint8_t b = _pin;
         wait_us(50);
         // shift d to right and insert b in most sig bit position
         d = (d >> 1) | (b<<7);
