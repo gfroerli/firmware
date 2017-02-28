@@ -1,5 +1,6 @@
 #include "mbed.h"
 #include <functional>
+#include "OneWire.h"
 
 uint8_t SHT3X_I2C_ADDR = 0x45<<1;
 
