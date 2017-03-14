@@ -16,7 +16,7 @@ void OneWire::write_bit(bool bit)
         _pin = 0;
         wait_us(5);
         _pin.input();
-        wait_us(60);
+        wait_us(55);
     } else {
         _pin.output();
         _pin = 0;
