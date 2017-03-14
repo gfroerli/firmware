@@ -17,6 +17,23 @@ int send_command(I2C& i2c, uint8_t address, uint16_t command) {
     return i2c.write(address, cmd, sizeof(cmd));
 }
 
+void ds18b20_send_command(OneWire& one_wire, uint8_t command) {
+        one_wire.reset();
+        one_wire.write_byte(0xCC); // skip ROM
+        one_wire.write_byte(command);
+}
+
+bool ds18b20_wait_for_completion(OneWire& one_wire) {
+    for(int n=0;n<100; ++n) {
+        uint8_t byte = one_wire.read_byte();
+        if(byte) {
+            return false;
+        }
+        wait_ms(10);
+    }
+    return true;
+}
+
 int main() {
     printf("Start the super awesome water temperature sensor reader\n");
 
