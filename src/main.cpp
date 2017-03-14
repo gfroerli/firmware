@@ -43,6 +43,8 @@ int main() {
     I2C i2c_0(p28, p27);
     I2C i2c_1(p9, p10);
 
+    OneWire one_wire(p20);
+
     using I2CLink = std::reference_wrapper<I2C>;
 
     I2CLink i2cs[2] = {i2c_0, i2c_1};
@@ -62,6 +64,8 @@ int main() {
                 printf("i2c.write failed: %i\n", error);
             }
         }
+        // start conversion
+        ds18b20_send_command(one_wire, 0x44);
         wait(0.5);
 
         for (auto i2c : i2cs) {
@@ -80,6 +84,20 @@ int main() {
             float humi = calculate_humi(data[3], data[4]);
             printf(" Humi = %.2f\n", humi);
         }
+
+        bool error = ds18b20_wait_for_completion(one_wire);
+        if (error) {
+            printf("Conversion timed out");
+        }
+
+        // read scratchpad
+        ds18b20_send_command(one_wire, 0xBE);
+        int16_t temperature = 0;
+        for(int n=0;n<2; ++n) {
+            uint8_t byte = one_wire.read_byte();
+            temperature |= byte << (8*n);
+        }
+        printf("%i -> 1-Wire Temp %.2f\n", temperature, (float)temperature / 16.0f);
 
         led1 = 0;
         wait(0.2);
