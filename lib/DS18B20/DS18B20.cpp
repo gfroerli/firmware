@@ -10,9 +10,8 @@ void DS18B20::send_command(Command command)
 
 bool DS18B20::wait_for_completion()
 {
-    for(int n=0;n<100; ++n) {
-        uint8_t byte = _one_wire.read_byte();
-        if(byte) {
+    for (int n = 0; n < 100; ++n) {
+        if (_one_wire.read_byte()) {
             return false;
         }
         wait_ms(10);
