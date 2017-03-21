@@ -26,9 +26,9 @@ void OneWire::write_bit(bool bit)
 }
 
 // output byte d (least sig bit first).
-void OneWire::write_byte(unsigned char d)
+void OneWire::write_byte(uint8_t d)
 {
-    for (uint8_t n=8; n!=0; n--)
+    for (uint8_t n = 0; n < 8; ++n)
     {
         write_bit(d & 0x01);
         d = d >> 1;
@@ -52,7 +52,7 @@ uint8_t OneWire::read_byte()
 {
     uint8_t d = 0;
 
-    for (uint8_t n = 0; n < 8; n++)
+    for (uint8_t n = 0; n < 8; ++n)
     {
         if (read_bit()) {
             d |= 1 << n;
