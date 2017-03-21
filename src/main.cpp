@@ -1,6 +1,6 @@
 #include "mbed.h"
 #include <functional>
-#include "OneWire.h"
+#include "DS18B20.h"
 
 uint8_t SHT3X_I2C_ADDR = 0x45<<1;
 
@@ -17,23 +17,6 @@ int send_command(I2C& i2c, uint8_t address, uint16_t command) {
     return i2c.write(address, cmd, sizeof(cmd));
 }
 
-void ds18b20_send_command(OneWire& one_wire, uint8_t command) {
-        one_wire.reset();
-        one_wire.write_byte(0xCC); // skip ROM
-        one_wire.write_byte(command);
-}
-
-bool ds18b20_wait_for_completion(OneWire& one_wire) {
-    for(int n=0;n<100; ++n) {
-        uint8_t byte = one_wire.read_byte();
-        if(byte) {
-            return false;
-        }
-        wait_ms(10);
-    }
-    return true;
-}
-
 int main() {
     printf("Start the super awesome water temperature sensor reader\n");
 
@@ -44,6 +27,7 @@ int main() {
     I2C i2c_1(p9, p10);
 
     OneWire one_wire(p20);
+    DS18B20 ds18b20(one_wire);
 
     using I2CLink = std::reference_wrapper<I2C>;
 
@@ -65,7 +49,7 @@ int main() {
             }
         }
         // start conversion
-        ds18b20_send_command(one_wire, 0x44);
+        ds18b20.start_measurement();
         wait(0.5);
 
         for (auto i2c : i2cs) {
@@ -85,19 +69,13 @@ int main() {
             printf(" Humi = %.2f\n", humi);
         }
 
-        bool error = ds18b20_wait_for_completion(one_wire);
-        if (error) {
+        bool timeout = ds18b20.wait_for_completion();
+        if (timeout) {
             printf("Conversion timed out");
         }
 
-        // read scratchpad
-        ds18b20_send_command(one_wire, 0xBE);
-        int16_t temperature = 0;
-        for(int n=0;n<2; ++n) {
-            uint8_t byte = one_wire.read_byte();
-            temperature |= byte << (8*n);
-        }
-        printf("%i -> 1-Wire Temp %.2f\n", temperature, (float)temperature / 16.0f);
+        float temperature = ds18b20.read_temperature();
+        printf("1-Wire Temp %.2f\n", temperature);
 
         led1 = 0;
         wait(0.2);
