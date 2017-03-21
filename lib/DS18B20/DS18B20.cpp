@@ -23,10 +23,7 @@ bool DS18B20::wait_for_completion()
 float DS18B20::read_temperature()
 {
     send_command(Command::ReadScratchpad);
-    int16_t temperature = 0;
-    for(int n=0;n<2; ++n) {
-        uint8_t byte = _one_wire.read_byte();
-        temperature |= byte << (8*n);
-    }
+    int16_t temperature = _one_wire.read_byte();
+    temperature |= _one_wire.read_byte() << 8;
     return static_cast<float>(temperature) * 0.0625f;
 }
