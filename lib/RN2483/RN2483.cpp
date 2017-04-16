@@ -342,7 +342,7 @@ bool RN2483::resetDevice()
     printf("RN2483: Reset\n");
     _RN2483.printf(STR_CMD_RESET);
     _RN2483.printf(CRLF);
-    if (expectString(STR_DEVICE_TYPE_RN)) {
+    if (expectString(STR_DEVICE_TYPE_RN, 2000)) {
         if (strstr(this->inputBuffer, STR_DEVICE_TYPE_RN2483) != NULL) {
             isRN2903 = false;
             return setPowerIndex(DEFAULT_PWR_IDX_868) &&
