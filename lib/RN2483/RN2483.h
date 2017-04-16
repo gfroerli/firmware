@@ -94,7 +94,7 @@ public:
     * @brief Attempts to connect to the network using Over The Air Activation.
     * @return Returns true if able to join network.
     */
-    bool joinOTTA();
+    bool joinOTAA();
     
     /**
     * @brief Attempts to connect to the network using Activation By Personalization.
