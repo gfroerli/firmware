@@ -79,7 +79,7 @@ public:
     * @param appKey provided by LoRaWAN Network server registration.
     * @return Returns true if network confirmation and able to save settings.
     */
-    bool initOTA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uint8_t appKey[16], bool adr = true);
+    bool initOTAA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uint8_t appKey[16], bool adr = true);
 
     /**
     * @brief Initializes the device and connects to the network using Activation By Personalization.
@@ -275,13 +275,13 @@ public:
 
 #ifdef USE_DYNAMIC_BUFFER
     // Sets the size of the input buffer.
-    // Needs to be called before initOTA()/initABP().
+    // Needs to be called before initOTAA()/initABP().
     void setInputBufferSize(uint16_t value) {
         this->inputBufferSize = value;
     };
 
     // Sets the size of the "Received Payload" buffer.
-    // Needs to be called before initOTA()/initABP().
+    // Needs to be called before initOTAA()/initABP().
     void setReceivedPayloadBufferSize(uint16_t value) {
         this->receivedPayloadBufferSize = value;
     };
@@ -319,7 +319,7 @@ private:
 #endif
 
     /**
-    * @brief Takes care of the init tasks common to both initOTA() and initABP.
+    * @brief Takes care of the init tasks common to both initOTAA() and initABP.
     */
     inline void init();
 
