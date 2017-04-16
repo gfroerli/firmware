@@ -32,6 +32,7 @@ RN2483::RN2483(PinName tx, PinName rx) :
 */
 void RN2483::init()
 {
+    printf("RN2483: Init\n");
 #ifdef USE_DYNAMIC_BUFFER
     // make sure the buffers are only initialized once
     if (!isBufferInitialized) {
@@ -55,6 +56,7 @@ void RN2483::init()
 */
 bool RN2483::initOTAA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uint8_t appKey[16], bool adr)
 {
+    printf("RN2483: Init OTAA\n");
     init();
     if(resetDevice() && setMacParam(STR_DEV_EUI, devEUI, 8) && setMacParam(STR_APP_EUI, appEUI, 8) &&
             setMacParam(STR_APP_KEY, appKey, 16) && setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)) && joinOTAA()) {
@@ -337,6 +339,7 @@ bool RN2483::expectOK(uint16_t timeout)
 */
 bool RN2483::resetDevice()
 {
+    printf("RN2483: Reset\n");
     _RN2483.printf(STR_CMD_RESET);
     _RN2483.printf(CRLF);
     if (expectString(STR_DEVICE_TYPE_RN)) {
@@ -627,6 +630,7 @@ bool RN2483::joinNetwork(const char* type)
 */
 bool RN2483::setMacParam(const char* paramName, const uint8_t* paramValue, uint16_t size)
 {
+    printf("RN2483: Set MAC param: %s\n");
     _RN2483.printf(STR_CMD_SET);
     _RN2483.printf(paramName);
 
