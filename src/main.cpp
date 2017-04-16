@@ -31,7 +31,7 @@ int main() {
 
     using I2CLink = std::reference_wrapper<I2C>;
 
-    I2CLink i2cs[2] = {i2c_0, i2c_1};
+    I2CLink i2cs[1] = {i2c_1};
 
     for (auto i2c : i2cs) {
         i2c.get().frequency(20000);
