@@ -28,7 +28,7 @@ RN2483::RN2483(PinName tx, PinName rx) :
 }
 
 /**
-* @brief Takes care of the init tasks common to both initOTA() and initABP.
+* @brief Takes care of the init tasks common to both initOTAA() and initABP.
 */
 void RN2483::init()
 {
@@ -53,7 +53,7 @@ void RN2483::init()
 * @param appKey provided by LoRaWAN Network server registration.
 * @return Returns true if network confirmation and able to save settings.
 */
-bool RN2483::initOTA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uint8_t appKey[16], bool adr)
+bool RN2483::initOTAA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uint8_t appKey[16], bool adr)
 {
     init();
     if(resetDevice() && setMacParam(STR_DEV_EUI, devEUI, 8) && setMacParam(STR_APP_EUI, appEUI, 8) &&
