@@ -57,7 +57,7 @@ bool RN2483::initOTA(const uint8_t devEUI[8], const uint8_t appEUI[8], const uin
 {
     init();
     if(resetDevice() && setMacParam(STR_DEV_EUI, devEUI, 8) && setMacParam(STR_APP_EUI, appEUI, 8) &&
-            setMacParam(STR_APP_KEY, appKey, 16) && setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)) && joinOTTA()) {
+            setMacParam(STR_APP_KEY, appKey, 16) && setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)) && joinOTAA()) {
         if(saveConfiguration()) {
             return true;
         }
@@ -89,7 +89,7 @@ bool RN2483::initABP(const uint8_t devAddr[4], const uint8_t appSKey[16], const 
 * @brief Attempts to connect to the network using Over The Air Activation.
 * @return Returns true if able to join network.
 */
-bool RN2483::joinOTTA()
+bool RN2483::joinOTAA()
 {
     return joinNetwork(STR_OTAA);
 }
