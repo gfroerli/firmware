@@ -50,7 +50,7 @@ int main() {
     PinName rx = p14;
     RN2483 lora(tx, rx);
 
-    // Wait for I²C sensor
+    // Set up I²C sensor
     i2c_1.frequency(20000);
 
     // Join the network
