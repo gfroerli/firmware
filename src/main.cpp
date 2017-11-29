@@ -2,14 +2,11 @@
 #include <functional>
 #include "DS18B20.h"
 #include "RN2483.h"
+#include "secrets.h"
 
 // SHT configuration
 const uint8_t SHT3X_I2C_ADDR = 0x45<<1;
 
-// RN2483 configuration, all arrays are in MSB byte order
-const uint8_t DEV_EUI[8] = { SET ME };
-const uint8_t APP_EUI[8] = { SET ME };
-const uint8_t APP_KEY[16] = { SET ME };
 const bool USE_ADR = false;
 
 // Measurement interval
