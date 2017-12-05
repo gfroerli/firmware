@@ -20,6 +20,9 @@ public:
 
     float get_supply_voltage();
 
+    static float convert_input(float input)
+    { return input * 3.3f / 9.31 * (9.31f + 6.04f); }
+
 private:
     AnalogIn& _input;
     DigitalOut& _enable;
