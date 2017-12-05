@@ -6,7 +6,9 @@ public:
         _input(input),
         _enable(enable),
         _samples(10)
-    {}
+    {
+        disable();
+    }
 
     float read_input()
     { return _input.read(); }
