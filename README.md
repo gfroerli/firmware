@@ -27,7 +27,17 @@ platformio run
 
 ## Upload
 
+Connect the J-Link
+
 ```
-platformio run --target upload
+./upload.sh
 ```
 
+## Reset Target
+
+Open an interactive J-Link session and execute a reset followed by a go:
+```
+LinkExe -device LPC11U24 -speed 4000 -if swd -autoconnect 1
+J-Link> r
+J-Link> g
+```
