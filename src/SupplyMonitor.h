@@ -4,8 +4,7 @@ class SupplyMonitor {
 public:
     SupplyMonitor(AnalogIn& input, DigitalOut& enable):
         _input(input),
-        _enable(enable),
-        _samples(10)
+        _enable(enable)
     {
         disable();
     }
@@ -24,6 +23,5 @@ public:
 private:
     AnalogIn& _input;
     DigitalOut& _enable;
-    size_t _samples;
 };
 
