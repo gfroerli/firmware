@@ -4,6 +4,7 @@
 #include "RN2483.h"
 #include "secrets.h"
 #include "SupplyMonitor.h"
+#include "PinMapping.h"
 
 // SHT configuration
 const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
@@ -27,23 +28,6 @@ int send_command(I2C& i2c, uint8_t address, uint8_t command) {
     return i2c.write(address, (char*)&command, 1);
 }
 
-static const PinName LED_RED = P1_22;
-static const PinName LED_YELLOW = P0_17;
-static const PinName LED_GREEN = P1_16;
-
-static const PinName DS18B20_IO = P1_31;
-
-static const PinName RN2483_TX = P0_19;
-static const PinName RN2483_RX = P0_18;
-
-static const PinName UART1_TX = P1_13;
-static const PinName UART1_RX = P1_14;
-
-static const PinName SCL = P0_4;
-static const PinName SDA = P0_5;
-
-static const PinName SUPPLY_MONITOR_ENABLE = P1_15;
-static const PinName SUPPLY_MONITOR_INPUT = P0_23;
 
 // UART to use for debug messages
 Serial uart1(UART1_TX, NC, 57600);
