@@ -3,6 +3,7 @@
 #include "DS18B20.h"
 #include "RN2483.h"
 #include "secrets.h"
+#include "SupplyMonitor.h"
 
 // SHT configuration
 const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
@@ -41,6 +42,9 @@ static const PinName UART1_RX = P1_14;
 static const PinName SCL = P0_4;
 static const PinName SDA = P0_5;
 
+static const PinName SUPPLY_MONITOR_ENABLE = P1_15;
+static const PinName SUPPLY_MONITOR_INPUT = P0_23;
+
 // UART to use for debug messages
 Serial uart1(UART1_TX, NC, 57600);
 
@@ -60,6 +64,12 @@ int main() {
     DigitalOut led_green(LED_GREEN);
 
     uart1.printf("LEDs initialized\n");
+
+    DigitalOut supply_monitor_enable(SUPPLY_MONITOR_ENABLE);
+    AnalogIn supply_monitor_input(SUPPLY_MONITOR_INPUT);
+    SupplyMonitor supply_monitor(supply_monitor_input, supply_monitor_enable);
+
+    uart1.printf("SupplyMonitor initialized\n");
 
     // Initialize DS18B20 sensor
     OneWire one_wire(DS18B20_IO);
