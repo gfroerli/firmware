@@ -9,7 +9,8 @@
 // SHT configuration
 const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
 
-const bool USE_ADR = false;
+// LoRaWAN settings
+const bool USE_ADR = true;
 
 // Measurement interval
 const float INTERVAL = 30.0;
