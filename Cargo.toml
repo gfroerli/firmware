@@ -1,0 +1,20 @@
+[package]
+name = "water-sensor-firmware"
+version = "0.1.9"
+authors = ["Raphael Nestler <raphael.nestler@gmail.com>"]
+description = "Firmware for the Credump water-sensor project"
+keywords = ["arm", "cortex-m"]
+categories = ["embedded", "no-std"]
+license = "GPL-3.0"
+repository = "https://github.com/coredump-ch/water-sensor-firmware-rs"
+[profile.dev]
+codegen-units = 1
+
+[profile.release]
+lto = true
+debug = true
+[dependencies.cortex-m]
+version = "0.2.7"
+
+[dependencies.cortex-m-rt]
+version = "0.2.3"
