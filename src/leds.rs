@@ -48,26 +48,22 @@ impl Leds {
 
     /// Enable the specified LED.
     pub fn on(&mut self, color: Color) {
-        let gpio = GPIO_PORT.get();
-        unsafe {
-            match color {
-                Color::Red => (*gpio).set1.write(|w| w.setp22().set_bit()),
-                Color::Yellow => (*gpio).set0.write(|w| w.setp17().set_bit()),
-                Color::Green => (*gpio).set1.write(|w| w.setp16().set_bit()),
-            };
-        }
+        let gpio = unsafe { &*GPIO_PORT.get() };
+        match color {
+            Color::Red => gpio.set1.write(|w| w.setp22().set_bit()),
+            Color::Yellow => gpio.set0.write(|w| w.setp17().set_bit()),
+            Color::Green => gpio.set1.write(|w| w.setp16().set_bit()),
+        };
     }
 
     /// Disable the specified LED.
     pub fn off(&mut self, color: Color) {
-        let gpio = GPIO_PORT.get();
-        unsafe {
-            match color {
-                Color::Red => (*gpio).clr1.write(|w| w.clrp022().set_bit()),
-                Color::Yellow => (*gpio).clr0.write(|w| w.clrp017().set_bit()),
-                Color::Green => (*gpio).clr1.write(|w| w.clrp016().set_bit()),
-            };
-        }
+        let gpio = unsafe { &*GPIO_PORT.get() };
+        match color {
+            Color::Red => gpio.clr1.write(|w| w.clrp022().set_bit()),
+            Color::Yellow => gpio.clr0.write(|w| w.clrp017().set_bit()),
+            Color::Green => gpio.clr1.write(|w| w.clrp016().set_bit()),
+        };
     }
 
     /// Turn on all LEDs.
