@@ -26,28 +26,37 @@ const SYSPLLCLKSEL_VAL: u32 = 0x00000001; // Reset: 0x000
 const MAINCLKSEL_VAL: u32 = 0x00000003; // Reset: 0x000
 const SYSAHBCLKDIV_VAL: u32 = 0x00000001; // Reset: 0x001
 
+/// Configure clock for external 12MHz crystal
 fn clock_setup() {
     unsafe {
         let syscon = &*lpc11uxx::SYSCON.get();
 
+        // Power-up system oscillator
         syscon.pdruncfg.modify(|_,w| w.sysosc_pd().powered());
         syscon.sysoscctrl.write(|w| w.bits(SYSOSCCTRL_VAL));
         sleep(200);
 
+        // select PLL input
         syscon.syspllclksel.write(|w| w.bits(SYSPLLCLKSEL_VAL));
+        // update clock source
         syscon.syspllclkuen.write(|w| w.bits(0x01));
+        // toggle update register
         syscon.syspllclkuen.write(|w| w.bits(0x00));
         syscon.syspllclkuen.write(|w| w.bits(0x01));
         // wait until updated
         while syscon.syspllclkuen.read().bits() & 0x01 == 0 {
         }
 
+        // power-up SYSPLL
         syscon.syspllctrl.write(|w| w.bits(SYSPLLCTRL_VAL));
         syscon.pdruncfg.modify(|_,w| w.syspll_pd().powered());
 
 
+        // select PLL clock output
         syscon.mainclksel.write(|w| w.bits(MAINCLKSEL_VAL));
+        // update MCLK clock source
         syscon.mainclkuen.write(|w| w.bits(0x01));
+        // toggle update register
         syscon.mainclkuen.write(|w| w.bits(0x00));
         syscon.mainclkuen.write(|w| w.bits(0x01));
         // wait until updated
@@ -55,11 +64,14 @@ fn clock_setup() {
         }
         syscon.sysahbclkdiv.write(|w| w.bits(SYSAHBCLKDIV_VAL));
 
+        // power-down USB PHY and PLL
         syscon.pdruncfg.modify(|_,w| w
             .usbpad_pd().usb_transceiver_poweered_down()
             .usbpll_pd().powered_down()
         );
 
+        // System clock to the IOCON needs to be enabled for most of the I/O
+        // related peripherals to work
         syscon.sysahbclkctrl.modify(|_,w| w.iocon().enable());
     }
 }
