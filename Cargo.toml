@@ -13,8 +13,8 @@ codegen-units = 1
 [profile.release]
 lto = true
 debug = true
-[dependencies.cortex-m]
-version = "0.2.7"
 
-[dependencies.cortex-m-rt]
-version = "0.2.3"
+[dependencies]
+cortex-m = "0.2.7"
+cortex-m-rt = "0.2.3"
+lpc11uxx = { git = "https://github.com/coredump-ch/lpc11uxx-rs" }
