@@ -5,6 +5,8 @@
 #include "secrets.h"
 #include "SupplyMonitor.h"
 #include "PinMapping.h"
+#include "SleepTimer.h"
+#include "power_down.h" 
 
 // SHT configuration
 const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
@@ -13,7 +15,7 @@ const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
 const bool USE_ADR = true;
 
 // Measurement interval
-const float INTERVAL = 30.0;
+const float INTERVAL = 300.0;
 
 float calculate_temp(char msb, char lsb) {
     lsb &= 0xFC;
@@ -38,6 +40,10 @@ static uint32_t* PIO0_19 = (uint32_t*)0x4004404C;
 
 static const uint32_t PIO0_19_RESET_VALUE = 0x00000090;
 static const uint32_t PIO0_19_UART_VALUE = 0x00000091;
+
+void ticker_callback() {
+    uart1.printf("t\n");
+}
 
 int main() {
     uart1.baud(57600);
@@ -86,6 +92,44 @@ int main() {
     led_red = 0;
     led_yellow = 0;
     led_green = 0;
+
+    //Ticker ticker;
+    //ticker.attach(&ticker_callback, 0.5);
+    
+    uart1.printf("%08x\n", LPC_SYSCON->SYSAHBCLKCTRL);
+    uart1.printf("%08x\n", LPC_SYSCON->MAINCLKSEL);
+
+    wait(0.5);
+    LPC_SYSCON->MAINCLKSEL = 0;
+    LPC_SYSCON->MAINCLKUEN = 1;
+    uart1.printf("%08x\n", LPC_SYSCON->MAINCLKSEL);
+
+    wait(0.5);
+    disable_unused_peripherals();
+    
+    uart1.printf("%08x\n", LPC_SYSCON->SYSAHBCLKCTRL);
+    
+    //Timer t;
+    //SleepTimer sleep_timer(t);
+
+    wait(0.5);
+    supply_monitor.enable();
+    wait(0.5);
+    supply_monitor.disable();
+
+    wait(1.0);
+    *PIO0_19 = PIO0_19_UART_VALUE;
+    lora.sleep(10000);
+    wait(0.5);
+    disable_used_peripherals();
+    wait(0.5);
+    *PIO0_19 = PIO0_19_RESET_VALUE;
+    wait(1.0);
+    for (;;) {
+        //sleep_timer.wait_ms(2000);
+        sleep();
+        uart1.printf("Woke up...\n");
+    }
 
     if (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0)
     {
@@ -197,13 +241,18 @@ int main() {
 
         // Measurement done, send it to TTN
         led_yellow = 1;
-        uint8_t payload[12] = {};
+
+        float supply_voltage = supply_monitor.get_supply_voltage();
+
+        uint8_t payload[16] = {};
+
         memcpy(payload, &ds_temp, 4);
         memcpy(payload + 4, &sht_temp, 4);
         memcpy(payload + 8, &sht_humi, 4);
+        memcpy(payload + 12, &supply_voltage, 4);
 
         *PIO0_19 = PIO0_19_UART_VALUE;
-        lora.send(1, payload, 12);
+        lora.send(1, payload, 16);
         *PIO0_19 = PIO0_19_RESET_VALUE;
 
         led_yellow = 0;
