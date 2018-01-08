@@ -1,13 +1,14 @@
 #include "mbed.h"
+#include "WakeUp.h"
 
 class SleepTimer {
 public:
-    explicit SleepTimer(Timer& timer):
-        _timer(timer)
+    explicit SleepTimer(WakeUp& wakup):
+        _wakup(wakup)
     { }
 
     void wait_ms(int millis);
 
 private:
-    Timer& _timer;
+    WakeUp& _wakup;
 };
