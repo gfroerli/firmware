@@ -38,6 +38,10 @@ Serial uart1(UART1_TX, NC, 57600);
 static uint32_t* PIO0_18 = (uint32_t*)0x40044048;
 static uint32_t* PIO0_19 = (uint32_t*)0x4004404C;
 
+static uint32_t* WDMOD = (uint32_t*)0x40004000;
+
+static uint32_t* ISER0 = (uint32_t*)0xE000E100;
+
 static const uint32_t PIO0_19_RESET_VALUE = 0x00000090;
 static const uint32_t PIO0_19_UART_VALUE = 0x00000091;
 
@@ -84,6 +88,10 @@ int main() {
     uart1.printf("PIO0_18: %08x\n", *PIO0_18);
     uart1.printf("PIO0_19: %08x\n", PIO0_19_initialized_value);
 
+    uart1.printf("WDMOD: %08x\n", *WDMOD);
+    uart1.printf("PDAWAKECFG: %08x\n", LPC_SYSCON->PDAWAKECFG);
+    uart1.printf("STARTERP1: %08x\n", LPC_SYSCON->STARTERP1);
+
     // Set up I²C sensor
     i2c_1.frequency(20000);
 
@@ -100,8 +108,8 @@ int main() {
     uart1.printf("%08x\n", LPC_SYSCON->MAINCLKSEL);
 
     wait(0.5);
-    LPC_SYSCON->MAINCLKSEL = 0;
-    LPC_SYSCON->MAINCLKUEN = 1;
+    //LPC_SYSCON->MAINCLKSEL = 0;
+    //LPC_SYSCON->MAINCLKUEN = 1;
     uart1.printf("%08x\n", LPC_SYSCON->MAINCLKSEL);
 
     wait(0.5);
@@ -109,8 +117,9 @@ int main() {
     
     uart1.printf("%08x\n", LPC_SYSCON->SYSAHBCLKCTRL);
     
-    //Timer t;
-    //SleepTimer sleep_timer(t);
+    WakeUp wake_up;
+    wake_up.calibrate();
+    SleepTimer sleep_timer(wake_up);
 
     wait(0.5);
     supply_monitor.enable();
@@ -121,14 +130,68 @@ int main() {
     *PIO0_19 = PIO0_19_UART_VALUE;
     lora.sleep(10000);
     wait(0.5);
-    disable_used_peripherals();
+    //disable_used_peripherals();
     wait(0.5);
     *PIO0_19 = PIO0_19_RESET_VALUE;
     wait(1.0);
+
+
     for (;;) {
+
         //sleep_timer.wait_ms(2000);
-        sleep();
+ 
+        NVIC_DisableIRQ(WDT_IRQn);
+
+        LPC_PMU->PCON = 0x1;
+
+        LPC_SYSCON->SYSAHBCLKCTRL |= (1<<15);
+        LPC_SYSCON->PDRUNCFG &= ~(1<<1); // Enable IRC oscillator
+        LPC_SYSCON->PDRUNCFG &= ~(1<<6); // Enable Watchdog oscillator
+        LPC_SYSCON->PDSLEEPCFG &= ~(1<<6); // Enable watchdog in power-down mode
+
+        LPC_SYSCON->MAINCLKSEL = 0;
+        LPC_SYSCON->MAINCLKUEN = 0;
+        LPC_SYSCON->MAINCLKUEN = 1;
+
+        LPC_SYSCON->PDAWAKECFG = 0xED00;
+
+        LPC_SYSCON->STARTERP1 |= 1<<12; // Enable WWDT intterupt
+
+        //Set oscillator for 20kHz = 5kHz after divide by 4 in WDT
+        LPC_SYSCON->WDTOSCCTRL = 14 | (1<<5);
+        
+        LPC_WWDT->TC = 5 * 5000;
+        LPC_WWDT->CLKSEL = 1;   //WDTOSC
+        LPC_WWDT->WARNINT = 0;
+        
+        LPC_WWDT->MOD = 1;      //Enable WDT
+
+        wait_ms(1);
+
+        NVIC_SetVector(WDT_IRQn, (uint32_t)WakeUp::irq_handler);
+        
+        //Feeeeeed me
+        LPC_WWDT->FEED = 0xAA;
+        LPC_WWDT->FEED = 0x55;
+
+
+        NVIC_ClearPendingIRQ(WDT_IRQn);
+        //(*ISER0) |= (1 << 25);
+        NVIC_EnableIRQ(WDT_IRQn);
+
+        SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+        led_green = 0;
+        __WFI();
+        //sleep();
+
+        enable_used_peripherals();
+
+        led_yellow = 0;
+        *PIO0_19 = PIO0_19_RESET_VALUE;
+        //sleep();
         uart1.printf("Woke up...\n");
+        led_green = 1;
+        wait(1.0);
     }
 
     if (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0)

@@ -3,5 +3,6 @@
 void SleepTimer::wait_ms(int millis)
 {
     _wakup.set_ms(millis);
-    deepsleep();
+    //__WFI();
+    //sleep();
 }
