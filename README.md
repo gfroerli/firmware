@@ -33,6 +33,12 @@ Connect the J-Link
 ./upload.sh
 ```
 
+## Debugging
+
+Connect to UART1 with 57600 baud:
+
+    miniterm.py </dev/serialport> 57600 --raw
+
 ## Reset Target
 
 Open an interactive J-Link session and execute a reset followed by a go:
