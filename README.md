@@ -25,6 +25,11 @@ pip install platformio
 platformio run
 ```
 
+## Configure
+
+After the first build, make sure to configure your `src/secrets.h` file with
+your LoRaWAN backend secrets. Then, rebuild before uploading to the device.
+
 ## Upload
 
 Connect the J-Link
