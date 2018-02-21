@@ -2,21 +2,21 @@
 
 ## Setup [platformio](http://platformio.org)
 
-platformio needs python2 so make sure to create the virtualenv accordingly:
+Install [pipenv](https://github.com/pypa/pipenv) to create a virtualenv with
+the correct platformio version:
 ```
 # Ubuntu
-sudo apt-get install python-virtualenv
-virtualenv .env
+sudo apt install python-pip
+pip install --user pipenv
 
 # ArchLinux
-sudo pacman -S python2-virtualenv
-virtualenv2 .env
+sudo pacman -S python-pipenv
 ```
 
-Activate the virtualenv and install platformio:
+Create and Activate the virtualenv and install platformio:
 ```
-. .env/bin/activate
-pip install platformio
+pipenv setup
+pipenv shell
 ```
 
 ## Build
