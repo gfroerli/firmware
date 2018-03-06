@@ -263,6 +263,11 @@ public:
     */
     MacGetStatusErrorCodes getMacStatus(uint16_t* status);
 
+    /**
+    * @brief Returns whether the modem is currently joined or not.
+    */
+    bool isJoined();
+
 #ifdef ENABLE_SLEEP
     /**
     * @brief Sends a serial line break to wake up the RN2483

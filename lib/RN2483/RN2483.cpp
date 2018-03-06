@@ -681,6 +681,19 @@ MacGetStatusErrorCodes RN2483::getMacStatus(uint16_t* status)
 }
 
 /**
+* @brief Returns whether the modem is currently joined or not.
+*/
+bool RN2483::isJoined() {
+    uint16_t status;
+    MacGetStatusErrorCodes error = getMacStatus(&status);
+    if (error != MacGetStatusErrorCodes::NoError) {
+        // well shit
+        return false;
+    }
+    return (status & 0x01) > 0;
+}
+
+/**
 * @brief Returns the enum that is mapped to the given "error" message
 * @param Error to lookup.
 * @return Returns the enum.
