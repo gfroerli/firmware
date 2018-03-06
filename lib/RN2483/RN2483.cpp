@@ -21,25 +21,13 @@ RN2483::RN2483(PinName tx, PinName rx) :
     receivedPayloadBufferSize(DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE),
     packetReceived(false),
     isRN2903(false)
-{
-#ifdef USE_DYNAMIC_BUFFER
-    this->isBufferInitialized = false;
-#endif
-}
+{ }
 
 /**
 * @brief Takes care of the init tasks common to both initOTAA() and initABP.
 */
 void RN2483::init()
 {
-#ifdef USE_DYNAMIC_BUFFER
-    // make sure the buffers are only initialized once
-    if (!isBufferInitialized) {
-        this->inputBuffer = static_cast<char*>(malloc(this->inputBufferSize));
-        this->receivedPayloadBuffer = static_cast<char*>(malloc(this->receivedPayloadBufferSize));
-        isBufferInitialized = true;
-    }
-#endif
     // make sure the module's state is synced and woken up
     sleep(259200000);
     wait_ms(10);
