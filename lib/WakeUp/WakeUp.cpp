@@ -9,7 +9,6 @@ the most likely result is that it just resets your board.
 
 #include "WakeUp.h"
 
-Callback<void()> WakeUp::callback;
 float WakeUp::cycles_per_ms = 5.0;
 
 void WakeUp::set_ms(uint32_t ms)
@@ -43,7 +42,6 @@ void WakeUp::set_ms(uint32_t ms)
 void WakeUp::irq_handler(void)
 {
     LPC_WWDT->MOD = 1<<3;
-    //callback.call();
 }
 
 void WakeUp::calibrate(void)

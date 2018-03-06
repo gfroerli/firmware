@@ -56,32 +56,6 @@ public:
     static void set_ms(uint32_t ms);
     
     /**
-    * Attach a function to be called after timeout
-    *
-    * This is optional, if you just want to wake up you 
-    * do not need to attach a function.
-    *
-    * Important: Many targets will run the wake-up routine
-    * at reduced clock speed, afterwards clock speed is restored.
-    * This means that clock speed dependent functions, such as printf
-    * might end up distorted.
-    *
-    * @code
-    * // Attaching regular function
-    * WakeUp::attach(&yourFunc);
-    * // Attaching member function inside another library    
-    * WakeUp::attach(callback(this, &YourLib::yourLibFunction));    
-    * @endcode
-    *
-    * It uses the new Callback system to attach functions.
-    *
-    * @param *function function to call
-    */
-    static void attach(Callback<void()> function) {
-        callback = function;
-    }
-    
-    /**
     * Calibrate the timer
     *
     * Some of the low-power timers have very bad accuracy.
@@ -92,8 +66,7 @@ public:
     static void calibrate(void);
 
 
-//private:
-    static Callback<void()> callback;
+private:
     static void irq_handler(void);
     static float cycles_per_ms;
 };
