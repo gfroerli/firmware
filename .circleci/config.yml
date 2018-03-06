@@ -1,0 +1,10 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: python:2.7
+    steps:
+      - checkout
+      - run: pip install platformio
+      - run: platformio run
