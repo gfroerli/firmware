@@ -1,8 +1,8 @@
 #include "SleepTimer.h"
 
-void SleepTimer::wait_ms(int millis)
+void SleepTimer::wait_ms(uint32_t millis)
 {
     _wakup.set_ms(millis);
-    //__WFI();
+    __WFI();
     //sleep();
 }
