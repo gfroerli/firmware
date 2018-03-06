@@ -644,6 +644,43 @@ bool RN2483::setMacParam(const char* paramName, const char* paramValue)
 }
 
 /**
+* @brief Returns the MAC status register value.
+*/
+MacGetStatusErrorCodes RN2483::getMacStatus(uint16_t* status)
+{
+    _RN2483.printf(STR_CMD_GETSTATUS);
+    _RN2483.printf(CRLF);
+
+    Timer t;
+    t.start();
+    int timeout = t.read_ms() + RECEIVE_TIMEOUT; // hard timeouts
+    while (t.read_ms() < timeout) {
+        uint16_t bytes_read = readLn();
+        if (bytes_read > 4) {
+            // The module returns a value like `00000001`.
+            // According to the datasheet (2.4.9.16), only 16 bit belong to the status,
+            // and it looks like the status is in the four right-most nibbles.
+            uint16_t high = HEX_PAIR_TO_BYTE(
+                this->inputBuffer[bytes_read - 4],
+                this->inputBuffer[bytes_read - 3]
+            );
+            uint16_t low = HEX_PAIR_TO_BYTE(
+                this->inputBuffer[bytes_read - 2],
+                this->inputBuffer[bytes_read - 1]
+            );
+            *status = (high << 8) & low;
+            t.stop();
+            return MacGetStatusErrorCodes::NoError;
+        } else {
+            t.stop();
+            return MacGetStatusErrorCodes::InvalidResponse;
+        }
+    }
+    t.stop();
+    return MacGetStatusErrorCodes::TimedOut;
+}
+
+/**
 * @brief Returns the enum that is mapped to the given "error" message
 * @param Error to lookup.
 * @return Returns the enum.

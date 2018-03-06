@@ -50,6 +50,13 @@ enum MacTransmitErrorCodes {
     Silent = 9,
 };
 
+// Error codes when calling `getMacStatus`.
+enum class MacGetStatusErrorCodes {
+    NoError = 0,
+    TimedOut = 1,
+    InvalidResponse = 2,
+};
+
 // Provides a simple, abstracted interface to Microchip's RN2483 LoRaWAN module.
 
 class RN2483
@@ -250,6 +257,11 @@ public:
     bool setMacParam(const char* paramName, const uint8_t* paramValue, uint16_t size);
     bool setMacParam(const char* paramName, uint8_t paramValue);
     bool setMacParam(const char* paramName, const char* paramValue);
+
+    /**
+    * @brief Returns the MAC status register value, or an error code.
+    */
+    MacGetStatusErrorCodes getMacStatus(uint16_t* status);
 
 #ifdef ENABLE_SLEEP
     /**
