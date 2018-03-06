@@ -1,5 +1,7 @@
 # watertemp firmware
 
+[![Build status](https://circleci.com/gh/gfroerli/firmware.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/gfroerli/firmware)
+
 ## Setup [platformio](http://platformio.org)
 
 Install [pipenv](https://github.com/pypa/pipenv) to create a virtualenv with
