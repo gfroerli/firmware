@@ -118,7 +118,7 @@ int main() {
     uart1.printf("%08x\n", LPC_SYSCON->SYSAHBCLKCTRL);
     
     WakeUp wake_up;
-    wake_up.calibrate();
+    //wake_up.calibrate();
     SleepTimer sleep_timer(wake_up);
 
     wait(0.5);
@@ -138,51 +138,9 @@ int main() {
 
     for (;;) {
 
-        //sleep_timer.wait_ms(2000);
- 
-        NVIC_DisableIRQ(WDT_IRQn);
-
-        LPC_PMU->PCON = 0x1;
-
-        LPC_SYSCON->SYSAHBCLKCTRL |= (1<<15);
-        LPC_SYSCON->PDRUNCFG &= ~(1<<1); // Enable IRC oscillator
-        LPC_SYSCON->PDRUNCFG &= ~(1<<6); // Enable Watchdog oscillator
-        LPC_SYSCON->PDSLEEPCFG &= ~(1<<6); // Enable watchdog in power-down mode
-
-        LPC_SYSCON->MAINCLKSEL = 0;
-        LPC_SYSCON->MAINCLKUEN = 0;
-        LPC_SYSCON->MAINCLKUEN = 1;
-
-        LPC_SYSCON->PDAWAKECFG = 0xED00;
-
-        LPC_SYSCON->STARTERP1 |= 1<<12; // Enable WWDT intterupt
-
-        //Set oscillator for 20kHz = 5kHz after divide by 4 in WDT
-        LPC_SYSCON->WDTOSCCTRL = 14 | (1<<5);
-        
-        LPC_WWDT->TC = 5 * 5000;
-        LPC_WWDT->CLKSEL = 1;   //WDTOSC
-        LPC_WWDT->WARNINT = 0;
-        
-        LPC_WWDT->MOD = 1;      //Enable WDT
-
-        wait_ms(1);
-
-        NVIC_SetVector(WDT_IRQn, (uint32_t)WakeUp::irq_handler);
-        
-        //Feeeeeed me
-        LPC_WWDT->FEED = 0xAA;
-        LPC_WWDT->FEED = 0x55;
-
-
-        NVIC_ClearPendingIRQ(WDT_IRQn);
-        //(*ISER0) |= (1 << 25);
-        NVIC_EnableIRQ(WDT_IRQn);
-
-        SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+        //disable_used_peripherals();
         led_green = 0;
-        __WFI();
-        //sleep();
+        sleep_timer.wait_ms(2000);
 
         enable_used_peripherals();
 

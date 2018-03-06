@@ -7,7 +7,7 @@ public:
         _wakup(wakup)
     { }
 
-    void wait_ms(int millis);
+    void wait_ms(uint32_t millis);
 
 private:
     WakeUp& _wakup;
