@@ -541,15 +541,13 @@ bool RN2483::forceEnable()
 
 /**
 * @brief Saves configurable parameters to eeprom.
-* @return Returns true if parameters are valid or false if not.
+* @return Returns true on success or false if not.
 */
 bool RN2483::saveConfiguration()
 {
-    // Forced to return true currently.
-    // Currently broken due to the long length of time it takes save to return.
-    //_RN2483.printf(STR_CMD_SAVE);
-    //_RN2483.printf(CRLF);
-    return true;
+    _RN2483.printf(STR_CMD_SAVE);
+    _RN2483.printf(CRLF);
+    return expectOK();
 }
 
 /**
