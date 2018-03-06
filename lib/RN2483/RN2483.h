@@ -284,10 +284,6 @@ private:
     // current with the latest transmission.
     bool packetReceived;
 
-    // Used to distinguise between RN2483 and RN2903.
-    // Currently only being set during reset().
-    bool isRN2903;
-
     char inputBuffer[DEFAULT_INPUT_BUFFER_SIZE];
     char receivedPayloadBuffer[DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE];
 

@@ -19,8 +19,7 @@ RN2483::RN2483(PinName tx, PinName rx) :
     _RN2483(tx, rx, getDefaultBaudRate()),
     inputBufferSize(DEFAULT_INPUT_BUFFER_SIZE),
     receivedPayloadBufferSize(DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE),
-    packetReceived(false),
-    isRN2903(false)
+    packetReceived(false)
 { }
 
 /**
@@ -329,16 +328,8 @@ bool RN2483::resetDevice()
     _RN2483.printf(CRLF);
     if (expectString(STR_DEVICE_TYPE_RN, 2000)) {
         if (strstr(this->inputBuffer, STR_DEVICE_TYPE_RN2483) != NULL) {
-            isRN2903 = false;
             return setPowerIndex(DEFAULT_PWR_IDX_868) &&
                    setSpreadingFactor(DEFAULT_SF_868);
-        } else if (strstr(this->inputBuffer, STR_DEVICE_TYPE_RN2903) != NULL) {
-            // TODO move into init once it is decided how to handle RN2903-specific operations
-            isRN2903 = true;
-
-            return setFsbChannels(DEFAULT_FSB) &&
-                   setPowerIndex(DEFAULT_PWR_IDX_915) &&
-                   setSpreadingFactor(DEFAULT_SF_915);
         } else {
             return false;
         }
@@ -379,14 +370,8 @@ bool RN2483::setFsbChannels(uint8_t fsb)
 */
 bool RN2483::setSpreadingFactor(uint8_t spreadingFactor)
 {
-    int8_t datarate;
-    if (!isRN2903) {
-        // RN2483 SF(DR) = 7(5), 8(4), 9(3), 10(2), 11(1), 12(0)
-        datarate = 12 - spreadingFactor;
-    } else {
-        // RN2903 SF(DR) = 7(3), 8(2), 9(1), 10(0)
-        datarate = 10 - spreadingFactor;
-    }
+    // RN2483 SF(DR) = 7(5), 8(4), 9(3), 10(2), 11(1), 12(0)
+    int8_t datarate = 12 - spreadingFactor;
 
     if (datarate > -1) {
         return setMacParam(STR_DATARATE, datarate);
