@@ -197,13 +197,17 @@ int main() {
 
         // Measurement done, send it to TTN
         led_yellow = 1;
-        uint8_t payload[12] = {};
+        uint8_t payload[16] = {};
+
+        float supply_voltage = supply_monitor.get_supply_voltage();
+
         memcpy(payload, &ds_temp, 4);
         memcpy(payload + 4, &sht_temp, 4);
         memcpy(payload + 8, &sht_humi, 4);
+        memcpy(payload + 12, &supply_voltage, 4);
 
         *PIO0_19 = PIO0_19_UART_VALUE;
-        lora.send(1, payload, 12);
+        lora.send(1, payload, 16);
         *PIO0_19 = PIO0_19_RESET_VALUE;
 
         led_yellow = 0;
