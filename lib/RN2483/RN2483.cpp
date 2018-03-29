@@ -520,7 +520,7 @@ bool RN2483::saveConfiguration()
 {
     _RN2483.printf(STR_CMD_SAVE);
     _RN2483.printf(CRLF);
-    return expectOK();
+    return expectOK(2000);
 }
 
 /**
