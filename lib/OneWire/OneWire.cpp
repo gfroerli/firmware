@@ -1,12 +1,15 @@
 #include "OneWire.h"
 
-void OneWire::reset()
+bool OneWire::reset()
 {
+    _pin.write(0);
     _pin.output();
-    _pin = 0;
     wait_us(500);
     _pin.input();
-    wait_us(500);
+    wait_us(50);
+    bool b = _pin;
+    wait_us(450);
+    return b == false;
 }
 
 void OneWire::write_bit(bool bit)

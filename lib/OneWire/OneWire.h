@@ -7,7 +7,11 @@ public:
         _pin(pin)
     {}
 
-    void reset();
+    /**
+     * Send a reset.
+     * @return true if a slave sent a "presence" pulse
+     */
+    bool reset();
 
     void write_byte(uint8_t byte);
     void write_bit(bool bit);
