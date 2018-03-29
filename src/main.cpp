@@ -87,32 +87,29 @@ int main() {
     led_yellow = 0;
     led_green = 0;
 
-    if (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0)
-    {
-        for (;;) {
-            led_yellow = 1;
-            uint8_t buffer[17] = {};
+    do {
+        led_yellow = 1;
+        uint8_t buffer[17] = {};
 
-            *PIO0_19 = PIO0_19_UART_VALUE;
-            uint8_t bytes = lora.getHWEUI(buffer, 17);
-            *PIO0_19 = PIO0_19_RESET_VALUE;
+        *PIO0_19 = PIO0_19_UART_VALUE;
+        uint8_t bytes = lora.getHWEUI(buffer, 17);
+        *PIO0_19 = PIO0_19_RESET_VALUE;
 
-            if (bytes) {
-                led_green = 1;
-                led_red = 0;
-                uart1.printf("HWEUI: ");
-                for (uint8_t n = 0; n < bytes; ++n) {
-                    uart1.printf("%02x", buffer[n]);
-                }
-                uart1.printf("\n");
-            } else {
-                led_green = 0;
-                led_red = 1;
+        if (bytes) {
+            led_green = 1;
+            led_red = 0;
+            uart1.printf("HWEUI: ");
+            for (uint8_t n = 0; n < bytes; ++n) {
+                uart1.printf("%02x", buffer[n]);
             }
-            led_yellow = 0;
-            wait(1.0);
+            uart1.printf("\n");
+        } else {
+            led_green = 0;
+            led_red = 1;
         }
-    }
+        led_yellow = 0;
+        wait(1.0);
+    } while (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0);
 
     // Join the network
     bool joined = false;
