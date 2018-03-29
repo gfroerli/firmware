@@ -653,7 +653,7 @@ MacGetStatusErrorCodes RN2483::getMacStatus(uint16_t* status)
 
     Timer t;
     t.start();
-    int timeout = t.read_ms() + RECEIVE_TIMEOUT; // hard timeouts
+    int timeout = t.read_ms() + DEFAULT_TIMEOUT;
     while (t.read_ms() < timeout) {
         uint16_t bytes_read = readLn();
         if (bytes_read > 4) {
