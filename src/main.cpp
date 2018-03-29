@@ -112,7 +112,9 @@ int main() {
     } while (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0);
 
     // Join the network
-    bool joined = false;
+    *PIO0_19 = PIO0_19_UART_VALUE;
+    bool joined = lora.isJoined();
+    *PIO0_19 = PIO0_19_RESET_VALUE;
     while (!joined) {
         led_yellow = 1;
         uart1.printf("Joining TTN via OTAA...\n");
