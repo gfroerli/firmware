@@ -4,6 +4,10 @@
 
 class DS18B20 {
 public:
+    enum class Result {
+        Success = 0,
+        NoDevice,
+    };
     enum class Command: uint8_t {
         SkipROM         = 0xCC,
         StartConversion = 0x44,
@@ -14,7 +18,7 @@ public:
         _one_wire(one_wire)
     {}
 
-    void send_command(Command command);
+    Result send_command(Command command);
 
     void start_measurement()
     { send_command(Command::StartConversion); }

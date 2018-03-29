@@ -1,11 +1,15 @@
 #include "DS18B20.h"
 
 
-void DS18B20::send_command(Command command)
+DS18B20::Result DS18B20::send_command(Command command)
 {
-    _one_wire.reset();
+    bool present = _one_wire.reset();
+    if (!present) {
+        return Result::NoDevice;
+    }
     _one_wire.write_byte(static_cast<uint8_t>(Command::SkipROM));
     _one_wire.write_byte(static_cast<uint8_t>(command));
+    return Result::Success;
 }
 
 bool DS18B20::wait_for_completion()
