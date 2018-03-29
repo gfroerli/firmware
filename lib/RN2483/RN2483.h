@@ -24,8 +24,6 @@
 #include "mbed.h"
 #include <stdint.h>
 
-//#define USE_DYNAMIC_BUFFER
-
 #define DEFAULT_INPUT_BUFFER_SIZE 64
 #define DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE 32
 #define DEFAULT_TIMEOUT 500
@@ -57,7 +55,7 @@ enum MacTransmitErrorCodes {
 class RN2483
 {
 public:
-    
+
     /**
     * @brief Create a new instance of the RN2483.
     * @param Serial TX pin name.
@@ -95,13 +93,13 @@ public:
     * @return Returns true if able to join network.
     */
     bool joinOTAA();
-    
+
     /**
     * @brief Attempts to connect to the network using Activation By Personalization.
     * @return Returns true if able to join network.
     */
     bool joinABP();
-    
+
     /**
     * @brief Sends the given payload without acknowledgement.
     * @param Port to use for transmission.
@@ -136,7 +134,7 @@ public:
     * @return Returns the number of bytes written or 0 in case of error..
     */
     uint8_t getHWEUI(uint8_t* buffer, uint8_t size);
-    
+
    /**
     * @brief Informs the RN2483 to do an ADC conversion on the VDD.
     * @param Pass pointer to long for conversion to read into.
@@ -190,7 +188,7 @@ public:
     * @return Returns true if parameters are valid or false if not.
     */
     bool setChannelFreq(uint8_t channelID, uint32_t frequency);
-    
+
     /**
     * @brief Sets the duty cycle allowed on the given channel ID.
     * @param Channel ID to set duty cycle (0-15),
@@ -208,7 +206,7 @@ public:
     * @return Returns true if parameters are valid or false if not.
     */
     bool setDrRange(uint8_t channelID, uint8_t minRange, uint8_t maxRange);
-    
+
     /**
     * @brief Sets a given channel ID to be enabled or disabled.
     * @param Channel ID from 0 - 15.
@@ -218,19 +216,19 @@ public:
     * @return Returns true if parameters are valid or false if not.
     */
     bool setStatus(uint8_t channelID, bool status);
-    
+
     /**
-    * @brief The network can issue a command to silence the RN2483. This restores the module. 
+    * @brief The network can issue a command to silence the RN2483. This restores the module.
     * @return Returns true if parameters are valid or false if not.
     */
     bool forceEnable();
-    
+
     /**
-    * @brief Saves configurable parameters to eeprom. 
+    * @brief Saves configurable parameters to eeprom.
     * @return Returns true if parameters are valid or false if not.
     */
     bool saveConfiguration();
-    
+
     /**
     * @brief Sends the command together with the given, paramValue (optional)
     * @param Command should include a trailing space if paramValue is set. Refer to RN2483 command ref
@@ -264,59 +262,30 @@ public:
     * @param Milliseconds to sleep for, range is 100 to 4294967295
     */
     void sleep(uint32_t);
-    
+
     /**
     * @brief Sends the RN2483 to sleep for a finite length of time.
     * Roughly three days.
     */
     void sleep();
-    
-#endif
-
-#ifdef USE_DYNAMIC_BUFFER
-    // Sets the size of the input buffer.
-    // Needs to be called before initOTAA()/initABP().
-    void setInputBufferSize(uint16_t value) {
-        this->inputBufferSize = value;
-    };
-
-    // Sets the size of the "Received Payload" buffer.
-    // Needs to be called before initOTAA()/initABP().
-    void setReceivedPayloadBufferSize(uint16_t value) {
-        this->receivedPayloadBufferSize = value;
-    };
 #endif
 
 private:
 
     Serial _RN2483;
 
-    // The size of the input buffer. Equals DEFAULT_INPUT_BUFFER_SIZE
-    // by default or (optionally) a user-defined value when using USE_DYNAMIC_BUFFER.
+    // The size of the input buffer. Equals DEFAULT_INPUT_BUFFER_SIZE.
     uint16_t inputBufferSize;
 
-    // The size of the received payload buffer. Equals DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE
-    // by default or (optionally) a user-defined value when using USE_DYNAMIC_BUFFER.
+    // The size of the received payload buffer. Equals DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE.
     uint16_t receivedPayloadBufferSize;
 
     // Flag used to make sure the received payload buffer is
     // current with the latest transmission.
     bool packetReceived;
 
-    // Used to distinguise between RN2483 and RN2903.
-    // Currently only being set during reset().
-    bool isRN2903;
-
-#ifdef USE_DYNAMIC_BUFFER
-    // Flag to make sure the buffers are not allocated more than once.
-    bool isBufferInitialized;
-
-    char* inputBuffer;
-    char* receivedPayloadBuffer;
-#else
     char inputBuffer[DEFAULT_INPUT_BUFFER_SIZE];
     char receivedPayloadBuffer[DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE];
-#endif
 
     /**
     * @brief Takes care of the init tasks common to both initOTAA() and initABP.
