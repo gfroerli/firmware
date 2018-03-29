@@ -656,24 +656,26 @@ MacGetStatusErrorCodes RN2483::getMacStatus(uint16_t* status)
     int timeout = t.read_ms() + DEFAULT_TIMEOUT;
     while (t.read_ms() < timeout) {
         uint16_t bytes_read = readLn();
-        if (bytes_read > 4) {
-            // The module returns a value like `00000001`.
-            // According to the datasheet (2.4.9.16), only 16 bit belong to the status,
-            // and it looks like the status is in the four right-most nibbles.
-            uint16_t high = HEX_PAIR_TO_BYTE(
-                this->inputBuffer[bytes_read - 4],
-                this->inputBuffer[bytes_read - 3]
-            );
-            uint16_t low = HEX_PAIR_TO_BYTE(
-                this->inputBuffer[bytes_read - 2],
-                this->inputBuffer[bytes_read - 1]
-            );
-            *status = (high << 8) & low;
-            t.stop();
-            return MacGetStatusErrorCodes::NoError;
-        } else {
-            t.stop();
-            return MacGetStatusErrorCodes::InvalidResponse;
+        if ( bytes_read > 0 ) {
+            if (bytes_read >= 4) {
+                // The module returns a value like `00000001`.
+                // According to the datasheet (2.4.9.16), only 16 bit belong to the status,
+                // and it looks like the status is in the four right-most nibbles.
+                uint16_t high = HEX_PAIR_TO_BYTE(
+                        this->inputBuffer[bytes_read - 4],
+                        this->inputBuffer[bytes_read - 3]
+                        );
+                uint16_t low = HEX_PAIR_TO_BYTE(
+                        this->inputBuffer[bytes_read - 2],
+                        this->inputBuffer[bytes_read - 1]
+                        );
+                *status = (high << 8) & low;
+                t.stop();
+                return MacGetStatusErrorCodes::NoError;
+            } else {
+                t.stop();
+                return MacGetStatusErrorCodes::InvalidResponse;
+            }
         }
     }
     t.stop();
