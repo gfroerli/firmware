@@ -657,19 +657,19 @@ MacGetStatusErrorCodes RN2483::getMacStatus(uint16_t* status)
     while (t.read_ms() < timeout) {
         uint16_t bytes_read = readLn();
         if ( bytes_read > 0 ) {
-            if (bytes_read >= 4) {
+            if (bytes_read >= 5) {
                 // The module returns a value like `00000001`.
                 // According to the datasheet (2.4.9.16), only 16 bit belong to the status,
                 // and it looks like the status is in the four right-most nibbles.
                 uint16_t high = HEX_PAIR_TO_BYTE(
-                        this->inputBuffer[bytes_read - 4],
-                        this->inputBuffer[bytes_read - 3]
+                        this->inputBuffer[bytes_read - 5],
+                        this->inputBuffer[bytes_read - 4]
                         );
                 uint16_t low = HEX_PAIR_TO_BYTE(
-                        this->inputBuffer[bytes_read - 2],
-                        this->inputBuffer[bytes_read - 1]
+                        this->inputBuffer[bytes_read - 3],
+                        this->inputBuffer[bytes_read - 2]
                         );
-                *status = (high << 8) & low;
+                *status = (high << 8) | low;
                 t.stop();
                 return MacGetStatusErrorCodes::NoError;
             } else {
