@@ -43,6 +43,7 @@
 #define STR_DEVICE_TYPE_RN2903 "RN2903"
 
 #define STR_CMD_SET "mac set "
+#define STR_CMD_GETSTATUS "mac get status"
 #define STR_CMD_SAVE "mac save"
 #define STR_RETRIES "retx "
 #define STR_DEV_ADDR "devaddr "
