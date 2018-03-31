@@ -24,7 +24,10 @@ pipenv shell
 ## Build
 
 ```
+# debug build
 platformio run
+# release build
+platformio run -e release
 ```
 
 ## Configure
