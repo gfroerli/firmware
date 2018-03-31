@@ -27,6 +27,8 @@ public:
 
     float read_temperature();
 
+    static uint8_t crc8(const uint8_t* begin, const uint8_t* end);
+
 private:
     OneWire& _one_wire;
 };
