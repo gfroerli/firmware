@@ -9,4 +9,4 @@ python_version = "2.7"
 [dev-packages]
 
 [packages]
-platformio = "*"
+platformio = "~=3.5"
