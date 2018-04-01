@@ -4,7 +4,8 @@
 class OneWire {
 public:
     OneWire(PinName pin):
-        _pin(pin)
+        _pin(pin),
+        ticker(get_us_ticker_data())
     {}
 
     /**
@@ -20,4 +21,6 @@ public:
 
 private:
     DigitalInOut _pin;
+    // we access the ticker directly to avoid calling overhead
+    const ticker_data_t *ticker;
 };
