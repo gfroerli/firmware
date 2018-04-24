@@ -50,7 +50,7 @@ float DS18B20::read_temperature()
         byte = _one_wire.read_byte();
     }
 
-    uint8_t crc = crc8(std::begin(data), std::end(data)-1);
+    uint8_t crc = crc8(data.begin(), data.end()-1);
 
     if (data.back() != crc) {
         return std::numeric_limits<float>::quiet_NaN();
