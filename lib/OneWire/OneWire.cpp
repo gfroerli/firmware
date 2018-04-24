@@ -1,15 +1,28 @@
 #include "OneWire.h"
 
+/**
+ * Reset 1-wire device and wait for presence pulse
+ */
 bool OneWire::reset()
 {
+    // The master starts a transmission with a reset pulse, which pulls the
+    // wire to 0 volts for at least 480 µs. This resets every slave device on
+    // the bus.
     _pin.write(0);
     _pin.output();
     wait_us(500);
+
+    // After that, any slave device, if present, shows that it exists with a
+    // "presence" pulse: it holds the bus low for at least 60 µs after the
+    // master releases the bus.
     _pin.input();
     wait_us(50);
     bool b = _pin;
+
+    // The total reset time must be at least 960 µs.
     wait_us(450);
-    return b == false;
+
+    return !b;
 }
 
 void OneWire::write_bit(bool bit)
