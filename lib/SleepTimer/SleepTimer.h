@@ -3,12 +3,12 @@
 
 class SleepTimer {
 public:
-    explicit SleepTimer(WakeUp& wakup):
-        _wakup(wakup)
+    explicit SleepTimer(WakeUp& wakeup):
+        _wakeup(wakeup)
     { }
 
     void wait_ms(uint32_t millis);
 
 private:
-    WakeUp& _wakup;
+    WakeUp& _wakeup;
 };

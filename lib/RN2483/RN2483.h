@@ -287,6 +287,11 @@ public:
     };
 #endif
 
+    /**
+    * @brief Takes care of the init tasks common to both initOTAA() and initABP.
+    */
+    inline void init();
+
 private:
 
     Serial _RN2483;
@@ -317,11 +322,6 @@ private:
     char inputBuffer[DEFAULT_INPUT_BUFFER_SIZE];
     char receivedPayloadBuffer[DEFAULT_RECEIVED_PAYLOAD_BUFFER_SIZE];
 #endif
-
-    /**
-    * @brief Takes care of the init tasks common to both initOTAA() and initABP.
-    */
-    inline void init();
 
     /**
     * @brief Reads a line from the device serial stream.
