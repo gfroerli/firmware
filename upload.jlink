@@ -1,4 +1,4 @@
 r
-loadbin ./.pioenvs/lpc11u24/firmware.bin 0x0000
+loadbin ./.pioenvs/debug/firmware.bin 0x0000
 r
 q
