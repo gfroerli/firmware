@@ -4,6 +4,10 @@
 
 class DS18B20 {
 public:
+    enum class Result {
+        Success = 0,
+        NoDevice,
+    };
     enum class Command: uint8_t {
         SkipROM         = 0xCC,
         StartConversion = 0x44,
@@ -14,7 +18,7 @@ public:
         _one_wire(one_wire)
     {}
 
-    void send_command(Command command);
+    Result send_command(Command command);
 
     void start_measurement()
     { send_command(Command::StartConversion); }
@@ -22,6 +26,8 @@ public:
     bool wait_for_completion();
 
     float read_temperature();
+
+    static uint8_t crc8(const uint8_t* begin, const uint8_t* end);
 
 private:
     OneWire& _one_wire;

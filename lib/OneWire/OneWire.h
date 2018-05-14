@@ -4,10 +4,15 @@
 class OneWire {
 public:
     OneWire(PinName pin):
-        _pin(pin)
+        _pin(pin),
+        ticker(get_us_ticker_data())
     {}
 
-    void reset();
+    /**
+     * Send a reset.
+     * @return true if a slave sent a "presence" pulse
+     */
+    bool reset();
 
     void write_byte(uint8_t byte);
     void write_bit(bool bit);
@@ -16,4 +21,6 @@ public:
 
 private:
     DigitalInOut _pin;
+    // we access the ticker directly to avoid calling overhead
+    const ticker_data_t *ticker;
 };
