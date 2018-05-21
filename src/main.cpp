@@ -15,6 +15,17 @@ const bool USE_ADR = true;
 // Measurement interval
 const float INTERVAL = 30.0;
 
+// Registers
+static uint32_t* PIO0_19 = (uint32_t*)0x4004404C;
+static const uint32_t PIO0_19_RESET_VALUE = 0x00000090;
+static const uint32_t PIO0_19_UART_VALUE = 0x00000091;
+
+// UART to use for debug messages
+Serial uart1(UART1_TX, NC, 57600);
+
+
+// Helper functions
+
 float calculate_temp(char msb, char lsb) {
     lsb &= 0xFC;
     return -46.85 + 175.72 * (msb<<8 | lsb) / 65536.0f;
@@ -29,17 +40,28 @@ int send_command(I2C& i2c, uint8_t address, uint8_t command) {
     return i2c.write(address, (char*)&command, 1);
 }
 
+/**
+ * Switch the UART to RN2483 mode.
+ */
+inline void uart_rn(uint32_t prewait_ms, uint32_t postwait_ms) {
+    wait_ms(prewait_ms);
+    *PIO0_19 = PIO0_19_UART_VALUE;
+    wait_ms(postwait_ms);
+}
 
-// UART to use for debug messages
-Serial uart1(UART1_TX, NC, 57600);
+/**
+ * Switch the UART to logging mode.
+ */
+inline void uart_log(uint32_t prewait_ms, uint32_t postwait_ms) {
+    wait_ms(prewait_ms);
+    *PIO0_19 = PIO0_19_RESET_VALUE;
+    wait_ms(postwait_ms);
+}
 
-static uint32_t* PIO0_18 = (uint32_t*)0x40044048;
-static uint32_t* PIO0_19 = (uint32_t*)0x4004404C;
-
-static const uint32_t PIO0_19_RESET_VALUE = 0x00000090;
-static const uint32_t PIO0_19_UART_VALUE = 0x00000091;
 
 int main() {
+    uart_log(0, 0); // Make sure that we set up the UART port for logging
+
     uart1.baud(57600);
     uart1.printf("Start the super awesome water temperature sensor reader\n");
 
@@ -67,16 +89,8 @@ int main() {
 
     uart1.printf("I2C initialized\n");
 
-    uart1.printf("PIO0_18: %08x\n", *PIO0_18);
-    uart1.printf("PIO0_19: %08x\n", *PIO0_19);
-
     // Initialize the RN2483 module
     RN2483 lora(RN2483_TX, RN2483_RX);
-    uint32_t PIO0_19_initialized_value = *PIO0_19;
-    *PIO0_19 = PIO0_19_RESET_VALUE;
-
-    uart1.printf("PIO0_18: %08x\n", *PIO0_18);
-    uart1.printf("PIO0_19: %08x\n", PIO0_19_initialized_value);
 
     // Set up I²C sensor
     i2c_1.frequency(20000);
@@ -91,9 +105,9 @@ int main() {
         led_yellow = 1;
         uint8_t buffer[17] = {};
 
-        *PIO0_19 = PIO0_19_UART_VALUE;
+        uart_rn(0, 0);
         uint8_t bytes = lora.getHWEUI(buffer, 17);
-        *PIO0_19 = PIO0_19_RESET_VALUE;
+        uart_log(0, 1);
 
         if (bytes) {
             led_green = 1;
@@ -112,16 +126,16 @@ int main() {
     } while (DEV_EUI[0] == 0 && APP_EUI[0] == 0 && APP_KEY[0] == 0);
 
     // Join the network
-    *PIO0_19 = PIO0_19_UART_VALUE;
+    uart_rn(1, 0);
     bool joined = lora.isJoined();
-    *PIO0_19 = PIO0_19_RESET_VALUE;
+    uart_log(0, 1);
     while (!joined) {
         led_yellow = 1;
         uart1.printf("Joining TTN via OTAA...\n");
 
-        *PIO0_19 = PIO0_19_UART_VALUE;
+        uart_rn(1, 0);
         joined = lora.initOTAA(DEV_EUI, APP_EUI, APP_KEY, USE_ADR);
-        *PIO0_19 = PIO0_19_RESET_VALUE;
+        uart_log(0, 1);
         if (joined) {
             led_green = 1;
             led_red = 0;
@@ -205,9 +219,9 @@ int main() {
         memcpy(payload + 8, &sht_humi, 4);
         memcpy(payload + 12, &supply_voltage, 4);
 
-        *PIO0_19 = PIO0_19_UART_VALUE;
+        uart_rn(0, 0);
         lora.send(1, payload, 16);
-        *PIO0_19 = PIO0_19_RESET_VALUE;
+        uart_log(0, 0);
 
         led_yellow = 0;
 
