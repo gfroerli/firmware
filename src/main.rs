@@ -1,15 +1,20 @@
 //! Prints "Hello, world!" on the OpenOCD console using semihosting
-#![feature(used)]
+#![feature(used, lang_items)]
+#![no_main]
 #![no_std]
 
-#[macro_use]
 extern crate cortex_m;
+#[macro_use(entry, exception)]
 extern crate cortex_m_rt;
 extern crate lpc11uxx;
+extern crate panic_semihosting;
 
 mod leds;
 
+use lpc11uxx::{Peripherals, SYSCON};
+
 use cortex_m::asm;
+use cortex_m_rt::ExceptionFrame;
 use leds::{Leds, Color};
 
 
@@ -27,9 +32,8 @@ const MAINCLKSEL_VAL: u32 = 0x00000003; // Reset: 0x000
 const SYSAHBCLKDIV_VAL: u32 = 0x00000001; // Reset: 0x001
 
 /// Configure clock for external 12MHz crystal
-fn clock_setup() {
+fn clock_setup(syscon: &mut SYSCON) {
     unsafe {
-        let syscon = &*lpc11uxx::SYSCON.get();
 
         // Power-up system oscillator
         syscon.pdruncfg.modify(|_,w| w.sysosc_pd().powered());
@@ -76,51 +80,56 @@ fn clock_setup() {
     }
 }
 
-fn main() {
-    hprintln!("Hello, world!");
-    clock_setup();
+entry!(main);
+fn main() -> ! {
+    let p = Peripherals::take().unwrap();
+    let mut syscon = p.SYSCON;
+    let mut iocon = p.IOCON;
+    let mut gpio = p.GPIO_PORT;
 
-    let syscon = lpc11uxx::SYSCON.get();
+    //hprintln!("Hello, world!");
+    clock_setup(&mut syscon);
 
-    unsafe {
-        // Enable GPIO clock
-        hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
-        (*syscon).sysahbclkctrl.write(|w| { w.gpio().enable(); w });
-        hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
-    }
+    // Enable GPIO clock
+    //hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
+    (*syscon).sysahbclkctrl.write(|w| { w.gpio().enable(); w });
+    //hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
 
-    let mut leds = Leds::init();
+    let mut leds = Leds::init(&mut iocon, &mut gpio);
 
-    leds.all();
+    leds.all(&mut gpio);
     sleep(5000);
-    leds.none();
+    leds.none(&mut gpio);
     sleep(2500);
 
-    let delay = 1000;
-    hprintln!("Starting main loop");
+    let delay = 5000;
+    //hprintln!("Starting main loop");
     loop {
-        leds.on(Color::Red);
+        leds.on(&mut gpio, Color::Red);
         sleep(delay);
-        leds.on(Color::Yellow);
+        leds.on(&mut gpio, Color::Yellow);
         sleep(delay);
-        leds.on(Color::Green);
+        leds.on(&mut gpio, Color::Green);
         sleep(delay);
 
-        leds.off(Color::Red);
+        leds.off(&mut gpio, Color::Red);
         sleep(delay);
-        leds.off(Color::Yellow);
+        leds.off(&mut gpio, Color::Yellow);
         sleep(delay);
-        leds.off(Color::Green);
+        leds.off(&mut gpio, Color::Green);
         sleep(delay);
     }
 }
 
-// As we are not using interrupts, we just register a dummy catch all handler
-#[allow(dead_code)]
-#[used]
-#[link_section = ".rodata.interrupts"]
-static INTERRUPTS: [extern "C" fn(); 240] = [default_handler; 240];
+exception!(HardFault, hard_fault);
 
-extern "C" fn default_handler() {
-    asm::bkpt();
+fn hard_fault(ef: &ExceptionFrame) -> ! {
+    panic!("HardFault at {:#?}", ef);
 }
+
+exception!(*, default_handler);
+
+fn default_handler(irqn: i16) {
+    panic!("Unhandled exception (IRQn = {})", irqn);
+}
+
