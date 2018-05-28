@@ -9,11 +9,10 @@ rustup override set nightly
 # Install dependencies
 sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb openocd
 
-# Install xargo
-cargo install xargo
-rustup component add rust-src
+# Install target
+rustup target add thumbv6m-none-eabi
 
-xargo build
+cargo build --release
 ```
 
 ## Run
