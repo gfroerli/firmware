@@ -6,15 +6,19 @@
 extern crate cortex_m;
 #[macro_use(entry, exception)]
 extern crate cortex_m_rt;
+extern crate cortex_m_semihosting as sh;
 extern crate lpc11uxx;
 extern crate panic_semihosting;
 
 mod leds;
 
+use core::fmt::Write;
+
 use lpc11uxx::{Peripherals, SYSCON};
 
 use cortex_m::asm;
 use cortex_m_rt::ExceptionFrame;
+use sh::hio;
 use leds::{Leds, Color};
 
 
@@ -82,18 +86,19 @@ fn clock_setup(syscon: &mut SYSCON) {
 
 entry!(main);
 fn main() -> ! {
+    let mut stdout = hio::hstdout().unwrap();
     let p = Peripherals::take().unwrap();
     let mut syscon = p.SYSCON;
     let mut iocon = p.IOCON;
     let mut gpio = p.GPIO_PORT;
 
-    //hprintln!("Hello, world!");
+    writeln!(stdout, "Hello, world!").unwrap();
     clock_setup(&mut syscon);
 
     // Enable GPIO clock
-    //hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
+    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
     (*syscon).sysahbclkctrl.write(|w| { w.gpio().enable(); w });
-    //hprintln!("SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits());
+    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
 
@@ -103,7 +108,7 @@ fn main() -> ! {
     sleep(2500);
 
     let delay = 5000;
-    //hprintln!("Starting main loop");
+    writeln!(stdout, "Starting main loop").unwrap();
     loop {
         leds.on(&mut gpio, Color::Red);
         sleep(delay);
