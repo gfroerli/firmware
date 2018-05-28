@@ -1,0 +1,12 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: rustlang/rust:nightly
+    steps:
+      - checkout
+      - run: apt update -y
+      - run: apt install -y gcc-arm-none-eabi
+      - run: rustup target add thumbv6m-none-eabi
+      - run: cargo build --release

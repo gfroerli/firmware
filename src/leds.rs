@@ -19,10 +19,7 @@ impl Leds {
     ///
     /// * Set pin functions (GPIO, no pull up/down)
     /// * Set pin direction (output)
-    pub fn init() -> Self {
-
-        let iocon = IOCON.get();
-        let gpio = GPIO_PORT.get();
+    pub fn init(iocon: &mut IOCON, gpio: &mut GPIO_PORT) -> Self {
 
         unsafe {
 
@@ -38,8 +35,8 @@ impl Leds {
                 .mode().inactive_no_pull_do());
 
             // Set pin directions to output
-            (*gpio).dir1.modify(|r, w| w.bits(r.bits() | (1<<16) | (1<<22)));
-            (*gpio).dir0.modify(|r, w| w.bits(r.bits() | (1<<17)));
+            (*gpio).dir[1].modify(|r, w| w.bits(r.bits() | (1<<16) | (1<<22)));
+            (*gpio).dir[0].modify(|r, w| w.bits(r.bits() | (1<<17)));
 
         }
 
@@ -47,36 +44,34 @@ impl Leds {
     }
 
     /// Enable the specified LED.
-    pub fn on(&mut self, color: Color) {
-        let gpio = unsafe { &*GPIO_PORT.get() };
+    pub fn on(&mut self, gpio: &mut GPIO_PORT, color: Color) {
         match color {
-            Color::Red => gpio.set1.write(|w| w.setp22().set_bit()),
-            Color::Yellow => gpio.set0.write(|w| w.setp17().set_bit()),
-            Color::Green => gpio.set1.write(|w| w.setp16().set_bit()),
+            Color::Red => gpio.set[1].write(|w| w.setp22().set_bit()),
+            Color::Yellow => gpio.set[0].write(|w| w.setp17().set_bit()),
+            Color::Green => gpio.set[1].write(|w| w.setp16().set_bit()),
         };
     }
 
     /// Disable the specified LED.
-    pub fn off(&mut self, color: Color) {
-        let gpio = unsafe { &*GPIO_PORT.get() };
+    pub fn off(&mut self, gpio: &mut GPIO_PORT, color: Color) {
         match color {
-            Color::Red => gpio.clr1.write(|w| w.clrp022().set_bit()),
-            Color::Yellow => gpio.clr0.write(|w| w.clrp017().set_bit()),
-            Color::Green => gpio.clr1.write(|w| w.clrp016().set_bit()),
+            Color::Red => gpio.clr[1].write(|w| w.clrp022().set_bit()),
+            Color::Yellow => gpio.clr[0].write(|w| w.clrp017().set_bit()),
+            Color::Green => gpio.clr[1].write(|w| w.clrp016().set_bit()),
         };
     }
 
     /// Turn on all LEDs.
-    pub fn all(&mut self) {
-        self.on(Color::Red);
-        self.on(Color::Yellow);
-        self.on(Color::Green);
+    pub fn all(&mut self, gpio: &mut GPIO_PORT) {
+        self.on(gpio, Color::Red);
+        self.on(gpio, Color::Yellow);
+        self.on(gpio, Color::Green);
     }
 
     /// Turn off all LEDs.
-    pub fn none(&mut self) {
-        self.off(Color::Red);
-        self.off(Color::Yellow);
-        self.off(Color::Green);
+    pub fn none(&mut self, gpio: &mut GPIO_PORT) {
+        self.off(gpio, Color::Red);
+        self.off(gpio, Color::Yellow);
+        self.off(gpio, Color::Green);
     }
 }
