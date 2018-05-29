@@ -7,14 +7,19 @@ extern crate cortex_m;
 #[macro_use(entry, exception)]
 extern crate cortex_m_rt;
 extern crate cortex_m_semihosting as sh;
-extern crate lpc11uxx;
+extern crate lpc11uxx_hal;
 extern crate panic_semihosting;
+extern crate embedded_hal;
 
 mod leds;
 
 use core::fmt::Write;
 
-use lpc11uxx::{Peripherals, SYSCON};
+use lpc11uxx_hal::delay::Delay;
+use lpc11uxx_hal::lpc11uxx;
+use lpc11uxx::{CorePeripherals, Peripherals, SYSCON};
+
+use embedded_hal::blocking::delay::DelayMs;
 
 use cortex_m::asm;
 use cortex_m_rt::ExceptionFrame;
@@ -88,12 +93,15 @@ entry!(main);
 fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
     let p = Peripherals::take().unwrap();
+    let cp = CorePeripherals::take().unwrap();
     let mut syscon = p.SYSCON;
     let mut iocon = p.IOCON;
     let mut gpio = p.GPIO_PORT;
 
     writeln!(stdout, "Hello, world!").unwrap();
     clock_setup(&mut syscon);
+
+    let mut delay = Delay::new(cp.SYST, 12_000_000);
 
     // Enable GPIO clock
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
@@ -103,26 +111,26 @@ fn main() -> ! {
     let mut leds = Leds::init(&mut iocon, &mut gpio);
 
     leds.all(&mut gpio);
-    sleep(5000);
+    delay.delay_ms(1000);
     leds.none(&mut gpio);
-    sleep(2500);
+    delay.delay_ms(1000);
 
-    let delay = 5000;
+    let delay_ms = 1000;
     writeln!(stdout, "Starting main loop").unwrap();
     loop {
         leds.on(&mut gpio, Color::Red);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
         leds.on(&mut gpio, Color::Yellow);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
         leds.on(&mut gpio, Color::Green);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
 
         leds.off(&mut gpio, Color::Red);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
         leds.off(&mut gpio, Color::Yellow);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
         leds.off(&mut gpio, Color::Green);
-        sleep(delay);
+        delay.delay_ms(delay_ms);
     }
 }
 
