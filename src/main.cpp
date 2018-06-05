@@ -13,7 +13,8 @@ const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
 const bool USE_ADR = true;
 
 // Measurement interval
-const uint32_t INTERVAL_S = 30;
+const uint32_t INTERVAL_S = 60 * 15;
+const uint32_t RN2483_WAKEUP_SAFETY_BUFFER_S = 2; // Wake up module a bit too early to be on the safe side
 
 // Registers
 static uint32_t* PIO0_19 = (uint32_t*)0x4004404C;
@@ -109,7 +110,6 @@ void power_down(uint32_t duration_ms) {
 
     // 5. Select the power configuration after wake-up in the wake-up
     // configuration register (PDAWAKECFG)
-    // LPC_SYSCON->PDAWAKECFG = ; TODO
     LPC_SYSCON->PDAWAKECFG = 0xE800 // reserved bits
                            | (1<<10) // usb transceiver powered down
                            | (1<<8) // usb pll powered down
@@ -296,23 +296,25 @@ int main() {
         uart_rn(0, 0);
 
         // Wake up RN2483
-        lora.wakeUp();
+        //lora.wakeUp(); // Temporarily disabled
         wait_ms(10);
 
         // Send payload to TTN via LoRaWAN
-        lora.send(1, payload, 16);
+        uint8_t tx_error = lora.send(1, payload, 16);
         led_yellow = 0;
+        if (tx_error) {
+            uart_log(1, 1);
+            uart1.printf("Could not forward packet to radio: %d\n", tx_error);
+            uart_rn(10, 0);
+        }
 
         // Put RN2483 in sleep mode
         wait_ms(10);
-        lora.sleep();
+        lora.sleep((INTERVAL_S - RN2483_WAKEUP_SAFETY_BUFFER_S) * 1000);
 
         // UART: Back to logging mode
-        wait_ms(10);
-        uart_log(1, 0);
-        wait_ms(10);
+        uart_log(10, 10);
 
-        //power_down(INTERVAL_S * 1000);
-        power_down(5000);
+        power_down(INTERVAL_S * 1000);
     }
 }
