@@ -19,7 +19,7 @@ cargo build --release
 
 ```Bash
 ./openocd.sh
-arm-none-eabi-gdb target/thumbv6m-none-eabi/debug/water-sensor-firmware
+arm-none-eabi-gdb target/thumbv6m-none-eabi/release/water-sensor-firmware
 ```
 
 ## License
