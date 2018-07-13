@@ -164,7 +164,6 @@ int main() {
 
     // Initialize SHT21 sensor
     I2C i2c_1(SDA, SCL);
-    i2c_1.frequency(20000);
     uart1.printf("I2C initialized\n");
 
     // Initialize the RN2483 module
