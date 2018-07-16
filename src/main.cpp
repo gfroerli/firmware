@@ -10,7 +10,8 @@
 const uint8_t SHT2X_I2C_ADDR = 0x40<<1;
 
 // LoRaWAN settings
-const bool USE_ADR = true;
+const bool USE_ADR = false;
+const uint8_t SPREADING_FACTOR = 9;
 
 // Measurement interval
 const uint32_t INTERVAL_S = 60 * 15;
@@ -221,6 +222,10 @@ int main() {
         led_yellow = 0;
 
         wait(5.0);
+    }
+
+    if (!lora.setSpreadingFactor(SPREADING_FACTOR)) {
+        uart1.printf("Error: Could not set SF\n");
     }
 
     // Main loop
