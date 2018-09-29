@@ -138,6 +138,7 @@ void power_down(uint32_t duration_ms) {
 
 
 int main() {
+restart:
     uart_log(0, 0); // Make sure that we set up the UART port for logging
 
     uart1.baud(57600);
@@ -224,12 +225,14 @@ int main() {
     }
 
     // Main loop
+    unsigned error_count = 0;
     while(true) {
         uart1.printf("------\nStart measurement...\n");
 
         led_green = 1;
         wait(0.2);
 
+        bool any_error = false;
         int error;
 
         // Start conversion
@@ -239,6 +242,7 @@ int main() {
         error = send_command(i2c_1, SHT2X_I2C_ADDR, (uint8_t)0xF3);
         if (error) {
             uart1.printf("i2c.write failed: %i\n", error);
+            any_error = true;
         }
         wait(0.1);
 
@@ -247,6 +251,7 @@ int main() {
         error = i2c_1.read(SHT2X_I2C_ADDR, data, len);
         if (error) {
             uart1.printf("i2c_1.read failed: %i\n", error);
+            any_error = true;
         }
         for(size_t i=0; i<len; ++i) {
             uart1.printf("%02x", data[i]);
@@ -258,11 +263,13 @@ int main() {
         error = send_command(i2c_1, SHT2X_I2C_ADDR, (uint8_t)0xF5);
         if (error) {
             uart1.printf("i2c.write failed: %i\n", error);
+            any_error = true;
         }
         wait(0.1);
         error = i2c_1.read(SHT2X_I2C_ADDR, data, len);
         if (error) {
             uart1.printf("i2c_1.read failed: %i\n", error);
+            any_error = true;
         }
         for(size_t i=0; i<len; ++i) {
             uart1.printf("%02x", data[i]);
@@ -305,6 +312,7 @@ int main() {
             uart_log(1, 1);
             uart1.printf("Could not forward packet to radio: %d\n", tx_error);
             uart_rn(10, 0);
+            any_error = true;
         }
 
         // Put RN2483 in sleep mode
@@ -313,6 +321,15 @@ int main() {
 
         // UART: Back to logging mode
         uart_log(10, 10);
+
+        if (any_error) {
+            error_count += 1;
+            if (error_count > 4) {
+                goto restart;
+            }
+        } else {
+            error_count = 0;
+        }
 
         power_down(INTERVAL_S * 1000);
     }
