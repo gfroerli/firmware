@@ -1,12 +1,15 @@
 [package]
-name = "water-sensor-firmware"
+name = "gfroerli-firmware"
 version = "0.2.0"
-authors = ["Raphael Nestler <raphael.nestler@gmail.com>"]
-description = "Firmware for the Credump water-sensor project"
+authors = [
+    "Raphael Nestler <raphael.nestler@gmail.com>",
+    "Danilo Bargen <mail@dbrgn.ch>",
+]
+description = "Firmware for the Gfrör.li water temperature sensor"
 keywords = ["arm", "cortex-m"]
 categories = ["embedded", "no-std"]
 license = "GPL-3.0"
-repository = "https://github.com/coredump-ch/water-sensor-firmware-rs"
+repository = "https://github.com/gfroerli/firmware"
 
 [profile.dev]
 codegen-units = 1

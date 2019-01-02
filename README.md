@@ -1,4 +1,4 @@
-# water-sensor-firmware-rs
+# Gfrör.li Firmware
 
 ## Build
 
