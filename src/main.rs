@@ -1,10 +1,8 @@
 //! Prints "Hello, world!" on the OpenOCD console using semihosting
-#![feature(used, lang_items)]
 #![no_main]
 #![no_std]
 
 extern crate cortex_m;
-#[macro_use(entry, exception)]
 extern crate cortex_m_rt;
 extern crate cortex_m_semihosting as sh;
 extern crate lpc11uxx_hal;
@@ -22,7 +20,7 @@ use lpc11uxx::{CorePeripherals, Peripherals, SYSCON};
 use embedded_hal::blocking::delay::DelayMs;
 
 use cortex_m::asm;
-use cortex_m_rt::ExceptionFrame;
+use cortex_m_rt::entry;
 use sh::hio;
 use leds::{Leds, Color};
 
@@ -85,11 +83,11 @@ fn clock_setup(syscon: &mut SYSCON) {
 
         // System clock to the IOCON needs to be enabled for most of the I/O
         // related peripherals to work
-        syscon.sysahbclkctrl.modify(|_,w| w.iocon().enable());
+        syscon.sysahbclkctrl.modify(|_,w| w.iocon().enabled());
     }
 }
 
-entry!(main);
+#[entry]
 fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
     let p = Peripherals::take().unwrap();
@@ -105,10 +103,12 @@ fn main() -> ! {
 
     // Enable GPIO clock
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
-    (*syscon).sysahbclkctrl.write(|w| { w.gpio().enable(); w });
+    (*syscon).sysahbclkctrl.write(|w| { w.gpio().enabled(); w });
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
+
+    writeln!(stdout, "Initialized").unwrap();
 
     leds.all(&mut gpio);
     delay.delay_ms(1000);
@@ -133,16 +133,3 @@ fn main() -> ! {
         delay.delay_ms(delay_ms);
     }
 }
-
-exception!(HardFault, hard_fault);
-
-fn hard_fault(ef: &ExceptionFrame) -> ! {
-    panic!("HardFault at {:#?}", ef);
-}
-
-exception!(*, default_handler);
-
-fn default_handler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
-}
-

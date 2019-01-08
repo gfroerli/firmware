@@ -1,9 +1,6 @@
 [build]
 target = "thumbv6m-none-eabi"
 
-[target.thumbv6m-none-eabi]
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
 runner = 'arm-none-eabi-gdb'
-rustflags = [
-  "-C", "link-arg=-Wl,-Tlink.x",
-  "-C", "link-arg=-nostartfiles",
-]
+rustflags = ["-C", "link-arg=-Tlink.x"]
