@@ -23,13 +23,13 @@ impl Leds {
         // Set port functions
         (*iocon)
             .pio1_22
-            .write(|w| w.func().pio1_22().mode().inactive());
+            .write(|w| w.func().pio1_22().mode().floating());
         (*iocon)
             .pio0_17
-            .write(|w| w.func().pio0_17().mode().inactive());
+            .write(|w| w.func().pio0_17().mode().floating());
         (*iocon)
             .pio1_16
-            .write(|w| w.func().pio1_16().mode().inactive());
+            .write(|w| w.func().pio1_16().mode().floating());
 
         unsafe {
             // Set pin directions to output

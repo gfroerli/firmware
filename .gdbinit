@@ -16,3 +16,5 @@ monitor arm semihosting enable
 
 load
 step
+
+break uart::Uart::putc

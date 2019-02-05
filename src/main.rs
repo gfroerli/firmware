@@ -24,6 +24,7 @@ use cortex_m::asm;
 use cortex_m_rt::entry;
 use leds::{Color, Leds};
 use sh::hio;
+use uart::Uart;
 
 /// Busy-loop the specified number of cycles.
 fn sleep(cycles: u32) {
@@ -93,6 +94,7 @@ fn main() -> ! {
     let mut syscon = p.SYSCON;
     let mut iocon = p.IOCON;
     let mut gpio = p.GPIO_PORT;
+    let mut usart = p.USART;
 
     writeln!(stdout, "Hello, world!").unwrap();
     clock_setup(&mut syscon);
@@ -115,6 +117,9 @@ fn main() -> ! {
     .unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
+    let mut uart = Uart::init(&mut syscon, &mut iocon, &mut usart);
+
+    uart.putc(&mut usart, b'a');
 
     writeln!(stdout, "Initialized").unwrap();
 
