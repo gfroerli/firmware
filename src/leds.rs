@@ -20,24 +20,22 @@ impl Leds {
     /// * Set pin functions (GPIO, no pull up/down)
     /// * Set pin direction (output)
     pub fn init(iocon: &mut IOCON, gpio: &mut GPIO_PORT) -> Self {
-
         unsafe {
-
             // Set port functions
             (*iocon).pio1_22.write(|w| w
-                .func().pio1_22_()
-                .mode().inactive_no_pull_do());
+                .func().pio1_22()
+                .mode().inactive());
             (*iocon).pio0_17.write(|w| w
-                .func().pio0_17_()
-                .mode().inactive_no_pull_do());
+                .func().pio0_17()
+                .mode().inactive());
             (*iocon).pio1_16.write(|w| w
-                .func().pio1_16_()
-                .mode().inactive_no_pull_do());
+                .func().pio1_16()
+                .mode().inactive());
+
 
             // Set pin directions to output
             (*gpio).dir[1].modify(|r, w| w.bits(r.bits() | (1<<16) | (1<<22)));
             (*gpio).dir[0].modify(|r, w| w.bits(r.bits() | (1<<17)));
-
         }
 
         Leds { }
