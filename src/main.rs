@@ -10,6 +10,7 @@ extern crate lpc11uxx_hal;
 extern crate panic_semihosting;
 
 mod leds;
+mod uart;
 
 use core::fmt::Write;
 
