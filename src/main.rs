@@ -99,7 +99,7 @@ fn main() -> ! {
     writeln!(stdout, "Hello, world!").unwrap();
     clock_setup(&mut syscon);
 
-    let mut delay = Delay::new(cp.SYST, 12_000_000);
+    let mut delay = Delay::new(cp.SYST, 48_000_000);
 
     // Enable GPIO clock
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
