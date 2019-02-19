@@ -117,9 +117,14 @@ fn main() -> ! {
     .unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
-    let mut uart = Uart::init(&mut syscon, &mut iocon, &mut usart);
+    let mut uart = Uart::init(&mut syscon, &mut iocon, &mut usart, &mut gpio);
 
-    uart.putc(&mut usart, b'a');
+    delay.delay_ms(10);
+    uart.putc(&mut usart, &mut gpio, b'a');
+    delay.delay_ms(10);
+    uart.putc(&mut usart, &mut gpio, 0);
+    delay.delay_ms(10);
+    uart.putc(&mut usart, &mut gpio, 1);
 
     writeln!(stdout, "Initialized").unwrap();
 
