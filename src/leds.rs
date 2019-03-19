@@ -1,6 +1,6 @@
 //! Control the debug LEDs on the PCB.
 
-use lpc11uxx::{IOCON, GPIO_PORT};
+use lpc11uxx::{GPIO_PORT, IOCON};
 
 /// The colors of the debug LEDs.
 pub enum Color {
@@ -21,23 +21,23 @@ impl Leds {
     /// * Set pin direction (output)
     pub fn init(iocon: &mut IOCON, gpio: &mut GPIO_PORT) -> Self {
         // Set port functions
-        (*iocon).pio1_22.write(|w| w
-            .func().pio1_22()
-            .mode().inactive());
-        (*iocon).pio0_17.write(|w| w
-            .func().pio0_17()
-            .mode().inactive());
-        (*iocon).pio1_16.write(|w| w
-            .func().pio1_16()
-            .mode().inactive());
+        (*iocon)
+            .pio1_22
+            .write(|w| w.func().pio1_22().mode().inactive());
+        (*iocon)
+            .pio0_17
+            .write(|w| w.func().pio0_17().mode().inactive());
+        (*iocon)
+            .pio1_16
+            .write(|w| w.func().pio1_16().mode().inactive());
 
         unsafe {
             // Set pin directions to output
-            (*gpio).dir[1].modify(|r, w| w.bits(r.bits() | (1<<16) | (1<<22)));
-            (*gpio).dir[0].modify(|r, w| w.bits(r.bits() | (1<<17)));
+            (*gpio).dir[1].modify(|r, w| w.bits(r.bits() | (1 << 16) | (1 << 22)));
+            (*gpio).dir[0].modify(|r, w| w.bits(r.bits() | (1 << 17)));
         }
 
-        Leds { }
+        Leds {}
     }
 
     /// Enable the specified LED.

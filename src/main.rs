@@ -5,25 +5,24 @@
 extern crate cortex_m;
 extern crate cortex_m_rt;
 extern crate cortex_m_semihosting as sh;
+extern crate embedded_hal;
 extern crate lpc11uxx_hal;
 extern crate panic_semihosting;
-extern crate embedded_hal;
 
 mod leds;
 
 use core::fmt::Write;
 
+use lpc11uxx::{CorePeripherals, Peripherals, SYSCON};
 use lpc11uxx_hal::delay::Delay;
 use lpc11uxx_hal::lpc11uxx;
-use lpc11uxx::{CorePeripherals, Peripherals, SYSCON};
 
 use embedded_hal::blocking::delay::DelayMs;
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
+use leds::{Color, Leds};
 use sh::hio;
-use leds::{Leds, Color};
-
 
 /// Busy-loop the specified number of cycles.
 fn sleep(cycles: u32) {
@@ -41,9 +40,8 @@ const SYSAHBCLKDIV_VAL: u32 = 0x00000001; // Reset: 0x001
 /// Configure clock for external 12MHz crystal
 fn clock_setup(syscon: &mut SYSCON) {
     unsafe {
-
         // Power-up system oscillator
-        syscon.pdruncfg.modify(|_,w| w.sysosc_pd().powered());
+        syscon.pdruncfg.modify(|_, w| w.sysosc_pd().powered());
         syscon.sysoscctrl.write(|w| w.bits(SYSOSCCTRL_VAL));
         sleep(200);
 
@@ -55,13 +53,11 @@ fn clock_setup(syscon: &mut SYSCON) {
         syscon.syspllclkuen.write(|w| w.bits(0x00));
         syscon.syspllclkuen.write(|w| w.bits(0x01));
         // wait until updated
-        while syscon.syspllclkuen.read().bits() & 0x01 == 0 {
-        }
+        while syscon.syspllclkuen.read().bits() & 0x01 == 0 {}
 
         // power-up SYSPLL
         syscon.syspllctrl.write(|w| w.bits(SYSPLLCTRL_VAL));
-        syscon.pdruncfg.modify(|_,w| w.syspll_pd().powered());
-
+        syscon.pdruncfg.modify(|_, w| w.syspll_pd().powered());
 
         // select PLL clock output
         syscon.mainclksel.write(|w| w.bits(MAINCLKSEL_VAL));
@@ -71,19 +67,20 @@ fn clock_setup(syscon: &mut SYSCON) {
         syscon.mainclkuen.write(|w| w.bits(0x00));
         syscon.mainclkuen.write(|w| w.bits(0x01));
         // wait until updated
-        while syscon.mainclkuen.read().bits() & 0x01 == 0 {
-        }
+        while syscon.mainclkuen.read().bits() & 0x01 == 0 {}
         syscon.sysahbclkdiv.write(|w| w.bits(SYSAHBCLKDIV_VAL));
 
         // power-down USB PHY and PLL
-        syscon.pdruncfg.modify(|_,w| w
-            .usbpad_pd().usb_transceiver_poweered_down()
-            .usbpll_pd().powered_down()
-        );
+        syscon.pdruncfg.modify(|_, w| {
+            w.usbpad_pd()
+                .usb_transceiver_poweered_down()
+                .usbpll_pd()
+                .powered_down()
+        });
 
         // System clock to the IOCON needs to be enabled for most of the I/O
         // related peripherals to work
-        syscon.sysahbclkctrl.modify(|_,w| w.iocon().enabled());
+        syscon.sysahbclkctrl.modify(|_, w| w.iocon().enabled());
     }
 }
 
@@ -102,9 +99,19 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, 48_000_000);
 
     // Enable GPIO clock
-    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
-    (*syscon).sysahbclkctrl.modify(|_, w| { w.gpio().enabled() });
-    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
+    writeln!(
+        stdout,
+        "SYSAHBCLKCTRL: {:#b}",
+        (*syscon).sysahbclkctrl.read().bits()
+    )
+    .unwrap();
+    (*syscon).sysahbclkctrl.modify(|_, w| w.gpio().enabled());
+    writeln!(
+        stdout,
+        "SYSAHBCLKCTRL: {:#b}",
+        (*syscon).sysahbclkctrl.read().bits()
+    )
+    .unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
 
