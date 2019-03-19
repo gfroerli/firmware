@@ -121,7 +121,7 @@ fn main() -> ! {
     writeln!(stdout, "UART init").unwrap();
     let mut uart = Uart::init(&mut syscon, &mut iocon, &mut usart, &mut gpio);
 
-    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap(); // 1000000000010111110001111111
+    writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
     writeln!(stdout, "LCR: {}", usart.lcr.read().bits()).unwrap(); // 131, 3
     writeln!(stdout, "FDR: {}", usart.fdr.read().bits()).unwrap(); // 237
 
