@@ -103,7 +103,7 @@ fn main() -> ! {
 
     // Enable GPIO clock
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
-    (*syscon).sysahbclkctrl.write(|w| { w.gpio().enabled(); w });
+    (*syscon).sysahbclkctrl.modify(|_, w| { w.gpio().enabled() });
     writeln!(stdout, "SYSAHBCLKCTRL: {:#b}", (*syscon).sysahbclkctrl.read().bits()).unwrap();
 
     let mut leds = Leds::init(&mut iocon, &mut gpio);
