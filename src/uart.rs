@@ -53,21 +53,13 @@ impl Uart {
             .func().txd()
             .mode().pull_up());
 
-        //(*iocon).pio1_13.write(|w| w
-        //    .func().pio1_13()
-        //    .mode().pull_up());
-
-        //(*iocon).pio1_14.write(|w| w
-        //    .func().rxd()
-        //    .mode().pull_up());
+        (*iocon).pio1_14.write(|w| w
+            .func().rxd()
+            .mode().pull_up());
 
         (*iocon).pio0_19.write(|w| w
             .func().txd()
             .mode().pull_up());
-
-        //(*iocon).pio0_19.write(|w| w
-        //    .func().pio0_19()
-        //    .mode().floating());
 
         (*iocon).pio0_18.write(|w| w
             .func().rxd()
@@ -81,9 +73,6 @@ impl Uart {
             (*gpio).dir[0].modify(|r, w| w.bits(r.bits() | (1<<19)));
         }
 
-        //gpio.clr[0].write(|w| w.clrp019().set_bit());
-        //gpio.clr[1].write(|w| w.clrp013().set_bit());
-
         Uart { }
     }
 
@@ -91,15 +80,8 @@ impl Uart {
         (usart.lsr.read().bits() & 0x20) != 0
     }
 
-    pub fn putc(&mut self, usart: &mut USART, gpio: &mut GPIO_PORT, value: u8) {
+    pub fn putc(&mut self, usart: &mut USART, value: u8) {
         unsafe {
-            /*
-            if value > 0 {
-                gpio.set[0].write(|w| w.setp19().set_bit());
-            } else {
-                gpio.clr[0].write(|w| w.clrp019().set_bit());
-            }
-            */
             while !self.writable(usart) {
             }
             usart.dll.thr.write(|w| w.bits(value.into()));
