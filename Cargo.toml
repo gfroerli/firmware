@@ -10,6 +10,7 @@ keywords = ["arm", "cortex-m"]
 categories = ["embedded", "no-std"]
 license = "GPL-3.0"
 repository = "https://github.com/gfroerli/firmware"
+edition = "2018"
 
 [profile.dev]
 codegen-units = 1
@@ -23,6 +24,6 @@ codegen-units = 1
 cortex-m = "0.5"
 cortex-m-rt = "0.6"
 cortex-m-semihosting = "0.3"
+embedded-hal = { version = "0.2.2", features = ["unproven"] }
 panic-semihosting = "0.5"
-lpc11uxx-hal = { git = "https://github.com/lpc-rs/lpc11uxx-hal.git" }
-embedded-hal = "0.2"
+stm32l0xx-hal = { version = "0.1.0", features = ["rt", "stm32l0x1"] }
