@@ -7,7 +7,7 @@ Requires latest Rust stable.
 
 ```Bash
 # Install dependencies
-sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb openocd
+sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb openocd stlink
 
 # Install target
 rustup target add thumbv6m-none-eabi
