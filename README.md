@@ -1,11 +1,11 @@
 # Gfrör.li Firmware
 
+
 ## Build
 
-```Bash
-# Switch to the nightly channel
-rustup override set nightly
+Requires latest Rust stable.
 
+```Bash
 # Install dependencies
 sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb openocd
 
@@ -15,12 +15,17 @@ rustup target add thumbv6m-none-eabi
 cargo build --release
 ```
 
-## Run
 
-```Bash
-./openocd.sh
-arm-none-eabi-gdb target/thumbv6m-none-eabi/release/water-sensor-firmware
-```
+## Run & debug
+
+In one terminal:
+
+    ./openocd.sh
+
+In another terminal:
+
+    cargo run
+
 
 ## License
 

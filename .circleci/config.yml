@@ -10,7 +10,7 @@ workflows:
 jobs:
   build:
     docker:
-      - image: rust:1.32.0
+      - image: rust:1.34.0
     steps:
       - checkout
       - run: apt update -y
@@ -20,7 +20,7 @@ jobs:
 
   fmt:
     docker:
-      - image: rust:1.32.0
+      - image: rust:1.34.0
     steps:
       - checkout
       - run: rustup component add rustfmt
