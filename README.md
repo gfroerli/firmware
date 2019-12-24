@@ -1,4 +1,4 @@
-# Gfrör.li Firmware
+# Gfrör.li v2 Firmware
 
 
 ## Build
