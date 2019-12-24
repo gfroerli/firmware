@@ -34,30 +34,30 @@ fn main() -> ! {
     let mut led_y = gpiob.pb0.into_push_pull_output();
     let mut led_g = gpioa.pa7.into_push_pull_output();
 
-//    writeln!(stdout, "Initializing USART").unwrap();
-//    let gpioa = dp.GPIOA.split(&mut rcc);
-//    let mut serial = hal::serial::Serial::usart2(
-//        dp.USART2,
-//        (
-//            gpioa.pa9.into_floating_input(),
-//            gpioa.pa10.into_floating_input(),
-//        ),
-//        hal::serial::Config {
-//            baudrate: hal::time::Bps(9600),
-//            wordlength: hal::serial::WordLength::DataBits8,
-//            parity: hal::serial::Parity::ParityNone,
-//            stopbits: hal::serial::StopBits::STOP1,
-//        },
-//        &mut rcc,
-//    )
-//    .unwrap();
-//
+    //writeln!(stdout, "Initializing USART").unwrap();
+    //let gpioa = dp.GPIOA.split(&mut rcc);
+    //let mut serial = hal::serial::Serial::usart2(
+    //    dp.USART2,
+    //    (
+    //        gpioa.pa9.into_floating_input(),
+    //        gpioa.pa10.into_floating_input(),
+    //    ),
+    //    hal::serial::Config {
+    //        baudrate: hal::time::Bps(9600),
+    //        wordlength: hal::serial::WordLength::DataBits8,
+    //        parity: hal::serial::Parity::ParityNone,
+    //        stopbits: hal::serial::StopBits::STOP1,
+    //    },
+    //    &mut rcc,
+    //)
+    //.unwrap();
 
     writeln!(stdout, "Starting loop").unwrap();
     loop {
         writeln!(stdout, "Hello, ").unwrap();
-//        serial.write_char('a').unwrap();
-//        serial.write_char('b').unwrap();
+
+        //serial.write_char('a').unwrap();
+        //serial.write_char('b').unwrap();
 
         led_r.set_high();
         delay.delay(hal::time::MicroSeconds(100_000));
