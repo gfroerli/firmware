@@ -3,7 +3,7 @@
 
 ## Build
 
-Requires latest Rust stable.
+Requires Rust stable, as specified in the `rust-toolchain` file.
 
 ```Bash
 # Install dependencies
