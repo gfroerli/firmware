@@ -59,21 +59,21 @@ fn main() -> ! {
         //serial.write_char('a').unwrap();
         //serial.write_char('b').unwrap();
 
-        led_r.set_high();
+        led_r.set_high().expect("Could not turn on LED");
         delay.delay(hal::time::MicroSeconds(100_000));
-        led_y.set_high();
+        led_y.set_high().expect("Could not turn on LED");
         delay.delay(hal::time::MicroSeconds(100_000));
-        led_g.set_high();
+        led_g.set_high().expect("Could not turn on LED");
 
         delay.delay(hal::time::MicroSeconds(200_000));
 
         writeln!(stdout, "world!").unwrap();
 
-        led_r.set_low();
+        led_r.set_low().expect("Could not turn off LED");
         delay.delay(hal::time::MicroSeconds(100_000));
-        led_y.set_low();
+        led_y.set_low().expect("Could not turn off LED");
         delay.delay(hal::time::MicroSeconds(100_000));
-        led_g.set_low();
+        led_g.set_low().expect("Could not turn off LED");
 
         delay.delay(hal::time::MicroSeconds(200_000));
     }
