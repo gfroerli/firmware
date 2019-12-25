@@ -8,6 +8,7 @@ use core::fmt::Write;
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting as sh;
+use rn2xx3::rn2483_868;
 use sh::hio;
 use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
@@ -33,6 +34,27 @@ fn main() -> ! {
     let mut led_r = gpiob.pb1.into_push_pull_output();
     let mut led_y = gpiob.pb0.into_push_pull_output();
     let mut led_g = gpioa.pa7.into_push_pull_output();
+
+    writeln!(stdout, "Initializing RN2483 driver").unwrap();
+    // Config: See RN2483 datasheet, table 3-1
+    let rn_serial_config = hal::serial::Config {
+        baudrate: hal::time::Bps(57_600),
+        wordlength: hal::serial::WordLength::DataBits8,
+        parity: hal::serial::Parity::ParityNone,
+        stopbits: hal::serial::StopBits::STOP1,
+    };
+    let rn_serial = hal::serial::Serial::lpuart1(
+        dp.LPUART1,
+        (gpioa.pa2, gpioa.pa3),
+        rn_serial_config,
+        &mut rcc,
+    )
+    .expect("Invalid LPUART1 config");
+    let mut rn = rn2483_868(rn_serial);
+
+    writeln!(stdout, "RN2483: Resetting module").unwrap();
+    let version = rn.reset().expect("Could not reset");
+    writeln!(stdout, "RN2483: Version {}", version).unwrap();
 
     //writeln!(stdout, "Initializing USART").unwrap();
     //let gpioa = dp.GPIOA.split(&mut rcc);
