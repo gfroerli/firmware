@@ -13,6 +13,7 @@ use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
 
 #[entry]
+#[allow(clippy::missing_safety_doc)]
 fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
 
