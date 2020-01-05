@@ -18,7 +18,7 @@ fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
 
     let p = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32l0xx_hal::device::Peripherals::take().unwrap();
+    let dp = hal::pac::Peripherals::take().unwrap();
 
     writeln!(stdout, "Greetings, Rusty world, from Gfrörli v2!").unwrap();
 
