@@ -24,8 +24,7 @@ fn main() -> ! {
 
     writeln!(stdout, "Initializing Delay").unwrap();
     let syst = p.SYST;
-    let rcc_config = hal::rcc::Config::msi(hal::rcc::MSIRange::Range5);
-    let mut rcc = dp.RCC.freeze(rcc_config);
+    let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
     let mut delay = hal::delay::Delay::new(syst, rcc.clocks);
 
     writeln!(stdout, "Initializing GPIO").unwrap();
