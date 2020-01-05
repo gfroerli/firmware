@@ -26,3 +26,4 @@ cortex-m-rt = "0.6"
 embedded-hal = { version = "0.2.2", features = ["unproven"] }
 panic-halt = "0.2" # Use ITM or panic-persist in the future
 stm32l0xx-hal = { version = "0.6.0", features = ["rt", "mcu-STM32L071KBTx"] }
+shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "provide-non-blocking-api" }

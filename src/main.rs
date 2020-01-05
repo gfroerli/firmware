@@ -6,6 +6,7 @@ extern crate panic_halt;
 use core::fmt::Write;
 
 use cortex_m_rt::entry;
+use shtcx::{shtc3, LowPower, PowerMode};
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, serial, time};
 
@@ -45,9 +46,23 @@ fn main() -> ! {
     let mut led_y = gpiob.pb0.into_push_pull_output();
     let mut led_g = gpioa.pa7.into_push_pull_output();
 
+    let sda = gpioa.pa10.into_open_drain_output();
+    let scl = gpioa.pa9.into_open_drain_output();
+    let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
+
+    let mut sht = shtc3(i2c);
+    sht.wakeup(&mut delay).expect("Could not wakup sensor");
+
     writeln!(debug, "Starting loop").unwrap();
     loop {
-        write!(debug, "a").unwrap();
+        let measurement = sht.measure(PowerMode::NormalMode, &mut delay).unwrap();
+        writeln!(
+            debug,
+            " {:.2} °C, {:.2} %RH",
+            measurement.temperature.as_degrees_celsius(),
+            measurement.humidity.as_percent()
+        )
+        .unwrap();
 
         led_r.set_high().expect("Could not turn on LED");
         delay.delay(time::MicroSeconds(100_000));
@@ -56,8 +71,6 @@ fn main() -> ! {
         led_g.set_high().expect("Could not turn on LED");
 
         delay.delay(time::MicroSeconds(200_000));
-
-        write!(debug, "b").unwrap();
 
         led_r.set_low().expect("Could not turn off LED");
         delay.delay(time::MicroSeconds(100_000));
