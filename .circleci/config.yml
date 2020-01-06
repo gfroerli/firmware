@@ -11,6 +11,9 @@ jobs:
   build:
     docker:
       - image: rust:1.40.0
+    environment:
+      GFROERLI_APP_EUI: "0011223344556677"
+      GFROERLI_APP_KEY: "0011223344556677889900aabbccddee"
     steps:
       - checkout
       - run: apt update -y
