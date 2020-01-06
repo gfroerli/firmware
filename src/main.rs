@@ -8,7 +8,7 @@ use core::fmt::Write;
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting as sh;
-use rn2xx3::rn2483_868;
+use rn2xx3::{rn2483_868, JoinMode};
 use sh::hio;
 use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
@@ -52,34 +52,42 @@ fn main() -> ! {
     .expect("Invalid LPUART1 config");
     let mut rn = rn2483_868(rn_serial);
 
+    let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
+
     writeln!(stdout, "RN2483: Resetting module").unwrap();
+    rn_reset_pin.set_low().expect("Could not set RN reset pin");
+    delay.delay(hal::time::MicroSeconds(1000));
+    rn_reset_pin.set_high().expect("Could not set RN reset pin");
+
     let version = rn.reset().expect("Could not reset");
     writeln!(stdout, "RN2483: Version {}", version).unwrap();
 
-    //writeln!(stdout, "Initializing USART").unwrap();
-    //let gpioa = dp.GPIOA.split(&mut rcc);
-    //let mut serial = hal::serial::Serial::usart2(
-    //    dp.USART2,
-    //    (
-    //        gpioa.pa9.into_floating_input(),
-    //        gpioa.pa10.into_floating_input(),
-    //    ),
-    //    hal::serial::Config {
-    //        baudrate: hal::time::Bps(9600),
-    //        wordlength: hal::serial::WordLength::DataBits8,
-    //        parity: hal::serial::Parity::ParityNone,
-    //        stopbits: hal::serial::StopBits::STOP1,
-    //    },
-    //    &mut rcc,
-    //)
-    //.unwrap();
+    // Show device info
+    writeln!(stdout, "== Device info ==\n").unwrap();
+    let hweui = rn.hweui().expect("Could not read hweui");
+    writeln!(stdout, "     HW-EUI: {}", hweui).unwrap();
+    let model = rn.model().expect("Could not read model");
+    writeln!(stdout, "      Model: {:?}", model).unwrap();
+    let version = rn.version().expect("Could not read version");
+    writeln!(stdout, "    Version: {}", version).unwrap();
+    let vdd = rn.vdd().expect("Could not read vdd");
+    writeln!(stdout, "Vdd voltage: {} mV", vdd).unwrap();
+
+    // Set keys
+    writeln!(stdout, "Setting keys...").unwrap();
+    rn.set_app_eui_hex(env!("GFROERLI_APP_EUI"))
+        .expect("Could not set app EUI");
+    rn.set_app_key_hex(env!("GFROERLI_APP_KEY"))
+        .expect("Could not set app key");
+
+    // Join
+    writeln!(stdout, "Joining via OTAA...").unwrap();
+    rn.join(JoinMode::Otaa).expect("Could not join");
+    writeln!(stdout, "OK").unwrap();
 
     writeln!(stdout, "Starting loop").unwrap();
     loop {
         writeln!(stdout, "Hello, ").unwrap();
-
-        //serial.write_char('a').unwrap();
-        //serial.write_char('b').unwrap();
 
         led_r.set_high().expect("Could not turn on LED");
         delay.delay(hal::time::MicroSeconds(100_000));
