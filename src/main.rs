@@ -18,14 +18,13 @@ fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
 
     let p = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32l0xx_hal::device::Peripherals::take().unwrap();
+    let dp = hal::pac::Peripherals::take().unwrap();
 
     writeln!(stdout, "Greetings, Rusty world, from Gfrörli v2!").unwrap();
 
     writeln!(stdout, "Initializing Delay").unwrap();
     let syst = p.SYST;
-    let rcc_config = hal::rcc::Config::msi(hal::rcc::MSIRange::Range5);
-    let mut rcc = dp.RCC.freeze(rcc_config);
+    let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
     let mut delay = hal::delay::Delay::new(syst, rcc.clocks);
 
     writeln!(stdout, "Initializing GPIO").unwrap();
