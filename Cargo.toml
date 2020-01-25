@@ -27,3 +27,4 @@ cortex-m-semihosting = "0.3"
 embedded-hal = { version = "0.2.2", features = ["unproven"] }
 panic-semihosting = "0.5"
 stm32l0xx-hal = { version = "0.5.0", features = ["rt", "stm32l0x1"] }
+onewire = "0.3.13"
