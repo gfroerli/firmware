@@ -4,6 +4,8 @@
 
 extern crate panic_semihosting;
 
+use onewire::{ds18b20, DeviceSearch, OneWire, DS18B20};
+
 use core::fmt::Write;
 
 use cortex_m_rt::entry;
@@ -51,6 +53,35 @@ fn main() -> ! {
     //    &mut rcc,
     //)
     //.unwrap();
+
+    let mut one = gpioa.pa6.into_open_drain_output().downgrade();
+
+    let mut wire = OneWire::new(&mut one, false);
+
+    wire.reset(&mut delay)
+        .expect("one wire broken (missing pullup?)");
+
+    let mut search = DeviceSearch::new();
+
+    while let Some(device) = wire.search_next(&mut search, &mut delay).unwrap() {
+        match device.address[0] {
+            ds18b20::FAMILY_CODE => {
+                let mut ds18b20 = DS18B20::new(device).unwrap();
+
+                // request sensor to measure temperature
+                let resolution = ds18b20.measure_temperature(&mut wire, &mut delay).unwrap();
+
+                // wait for compeltion, depends on resolution
+                delay.delay_ms(resolution.time_ms());
+
+                // read temperature
+                let temperature = ds18b20.read_temperature(&mut wire, &mut delay).unwrap();
+            }
+            _ => {
+                // unknown device type
+            }
+        }
+    }
 
     writeln!(stdout, "Starting loop").unwrap();
     loop {
