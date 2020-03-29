@@ -1,33 +1,26 @@
-//! Prints "Hello, world!" on the OpenOCD console using semihosting
 #![no_main]
 #![no_std]
 
-extern crate panic_semihosting;
-
-use core::fmt::Write;
+extern crate panic_halt;
 
 use cortex_m_rt::entry;
-use cortex_m_semihosting as sh;
-use sh::hio;
 use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
 
 #[entry]
 #[allow(clippy::missing_safety_doc)]
 fn main() -> ! {
-    let mut stdout = hio::hstdout().unwrap();
-
     let p = cortex_m::Peripherals::take().unwrap();
     let dp = hal::pac::Peripherals::take().unwrap();
 
-    writeln!(stdout, "Greetings, Rusty world, from Gfrörli v2!").unwrap();
+    //writeln!(stdout, "Greetings, Rusty world, from Gfrörli v2!").unwrap();
 
-    writeln!(stdout, "Initializing Delay").unwrap();
+    //writeln!(stdout, "Initializing Delay").unwrap();
     let syst = p.SYST;
     let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
     let mut delay = hal::delay::Delay::new(syst, rcc.clocks);
 
-    writeln!(stdout, "Initializing GPIO").unwrap();
+    //writeln!(stdout, "Initializing GPIO").unwrap();
     let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
     let mut led_r = gpiob.pb1.into_push_pull_output();
@@ -52,10 +45,8 @@ fn main() -> ! {
     //)
     //.unwrap();
 
-    writeln!(stdout, "Starting loop").unwrap();
+    //writeln!(stdout, "Starting loop").unwrap();
     loop {
-        writeln!(stdout, "Hello, ").unwrap();
-
         //serial.write_char('a').unwrap();
         //serial.write_char('b').unwrap();
 
@@ -66,8 +57,6 @@ fn main() -> ! {
         led_g.set_high().expect("Could not turn on LED");
 
         delay.delay(hal::time::MicroSeconds(200_000));
-
-        writeln!(stdout, "world!").unwrap();
 
         led_r.set_low().expect("Could not turn off LED");
         delay.delay(hal::time::MicroSeconds(100_000));
