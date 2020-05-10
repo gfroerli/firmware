@@ -7,11 +7,9 @@ use core::fmt::Write;
 
 use rtfm::app;
 use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{
-    self as hal,
-    gpio::{Output, PushPull},
-    pac, serial, time,
-};
+use stm32l0xx_hal::{self as hal, pac, serial, time};
+
+mod leds;
 
 #[app(device = stm32l0::stm32l0x1, peripherals = true)]
 const APP: () = {
@@ -19,13 +17,7 @@ const APP: () = {
         /// Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
 
-        /// Red status LED
-        led_r: hal::gpio::gpiob::PB<Output<PushPull>>,
-        /// Yellow status LED
-        led_y: hal::gpio::gpiob::PB<Output<PushPull>>,
-        /// Green status LED
-        led_g: hal::gpio::gpioa::PA<Output<PushPull>>,
-
+        status_leds: leds::StatusLeds,
         timer: hal::timer::Timer<pac::TIM6>,
     }
 
@@ -72,25 +64,23 @@ const APP: () = {
         writeln!(debug, "Debug output initialized on USART1!").unwrap();
 
         // Initialize LEDs
-        let mut led_r = gpiob.pb1.into_push_pull_output().downgrade();
-        let mut led_y = gpiob.pb0.into_push_pull_output().downgrade();
-        let mut led_g = gpioa.pa7.into_push_pull_output().downgrade();
-        led_r.set_low().unwrap();
-        led_y.set_low().unwrap();
-        led_g.set_high().unwrap();
+        let mut status_leds = leds::StatusLeds::new(
+            gpiob.pb1.into_push_pull_output().downgrade(),
+            gpiob.pb0.into_push_pull_output().downgrade(),
+            gpioa.pa7.into_push_pull_output().downgrade(),
+        );
+        status_leds.disable_all();
 
         writeln!(debug, "Initialization done").unwrap();
 
         init::LateResources {
             debug,
-            led_r,
-            led_y,
-            led_g,
+            status_leds,
             timer,
         }
     }
 
-    #[task(binds = TIM6, resources = [led_r, led_y, led_g, timer])]
+    #[task(binds = TIM6, resources = [status_leds, timer])]
     fn timer(ctx: timer::Context) {
         static mut STATE: u8 = 0;
 
@@ -100,18 +90,18 @@ const APP: () = {
         // Change LED on every interrupt
         match *STATE {
             0 => {
-                ctx.resources.led_g.set_low().unwrap();
-                ctx.resources.led_r.set_high().unwrap();
+                ctx.resources.status_leds.disable_green();
+                ctx.resources.status_leds.enable_red();
                 *STATE = 1;
             }
             1 => {
-                ctx.resources.led_r.set_low().unwrap();
-                ctx.resources.led_y.set_high().unwrap();
+                ctx.resources.status_leds.disable_red();
+                ctx.resources.status_leds.enable_yellow();
                 *STATE = 2;
             }
             2 => {
-                ctx.resources.led_y.set_low().unwrap();
-                ctx.resources.led_g.set_high().unwrap();
+                ctx.resources.status_leds.disable_yellow();
+                ctx.resources.status_leds.enable_green();
                 *STATE = 0;
             }
             _ => unreachable!(),
