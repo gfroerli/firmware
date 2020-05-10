@@ -25,6 +25,8 @@ const APP: () = {
         led_y: hal::gpio::gpiob::PB<Output<PushPull>>,
         /// Green status LED
         led_g: hal::gpio::gpioa::PA<Output<PushPull>>,
+
+        timer: hal::timer::Timer<pac::TIM6>,
     }
 
     #[init]
@@ -32,8 +34,22 @@ const APP: () = {
         let _p: cortex_m::Peripherals = ctx.core;
         let dp: pac::Peripherals = ctx.device;
 
+        // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
 
+        // TODO: Use the MSI (Multispeed Internal) clock source instead.
+        // However, currently the timer cannot be initialized (at least when
+        // connected through the debugger) when enabling MSI.
+        //let mut rcc = dp.RCC.freeze(
+        //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
+        //);
+
+        // Initialize timer to blink LEDs. Use TIM6 since it has lower current
+        // consumption than TIM2/3 or TIM21/22.
+        let mut timer = hal::timer::Timer::tim6(dp.TIM6, 2.hz(), &mut rcc);
+        timer.listen();
+
+        // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
         let gpiob = dp.GPIOB.split(&mut rcc);
 
@@ -59,38 +75,46 @@ const APP: () = {
         let mut led_r = gpiob.pb1.into_push_pull_output().downgrade();
         let mut led_y = gpiob.pb0.into_push_pull_output().downgrade();
         let mut led_g = gpioa.pa7.into_push_pull_output().downgrade();
-        led_r.set_high().unwrap();
+        led_r.set_low().unwrap();
         led_y.set_low().unwrap();
         led_g.set_high().unwrap();
 
-        //        writeln!(debug, "Starting loop").unwrap();
-        //        loop {
-        //            write!(debug, "a").unwrap();
-        //
-        //            led_r.set_high().expect("Could not turn on LED");
-        //            delay.delay(time::MicroSeconds(100_000));
-        //            led_y.set_high().expect("Could not turn on LED");
-        //            delay.delay(time::MicroSeconds(100_000));
-        //            led_g.set_high().expect("Could not turn on LED");
-        //
-        //            delay.delay(time::MicroSeconds(200_000));
-        //
-        //            write!(debug, "b").unwrap();
-        //
-        //            led_r.set_low().expect("Could not turn off LED");
-        //            delay.delay(time::MicroSeconds(100_000));
-        //            led_y.set_low().expect("Could not turn off LED");
-        //            delay.delay(time::MicroSeconds(100_000));
-        //            led_g.set_low().expect("Could not turn off LED");
-        //
-        //            delay.delay(time::MicroSeconds(200_000));
-        //        }
+        writeln!(debug, "Initialization done").unwrap();
 
         init::LateResources {
             debug,
             led_r,
             led_y,
             led_g,
+            timer,
+        }
+    }
+
+    #[task(binds = TIM6, resources = [led_r, led_y, led_g, timer])]
+    fn timer(ctx: timer::Context) {
+        static mut STATE: u8 = 0;
+
+        // Clear the interrupt flag
+        ctx.resources.timer.clear_irq();
+
+        // Change LED on every interrupt
+        match *STATE {
+            0 => {
+                ctx.resources.led_g.set_low().unwrap();
+                ctx.resources.led_r.set_high().unwrap();
+                *STATE = 1;
+            }
+            1 => {
+                ctx.resources.led_r.set_low().unwrap();
+                ctx.resources.led_y.set_high().unwrap();
+                *STATE = 2;
+            }
+            2 => {
+                ctx.resources.led_y.set_low().unwrap();
+                ctx.resources.led_g.set_high().unwrap();
+                *STATE = 0;
+            }
+            _ => unreachable!(),
         }
     }
 
