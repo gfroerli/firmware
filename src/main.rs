@@ -11,13 +11,15 @@ use stm32l0xx_hal::{self as hal, pac, serial, time};
 
 mod leds;
 
+use leds::{LedState, StatusLeds};
+
 #[app(device = stm32l0::stm32l0x1, peripherals = true)]
 const APP: () = {
     struct Resources {
         /// Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
 
-        status_leds: leds::StatusLeds,
+        status_leds: StatusLeds,
         timer: hal::timer::Timer<pac::TIM6>,
     }
 
@@ -64,7 +66,7 @@ const APP: () = {
         writeln!(debug, "Debug output initialized on USART1!").unwrap();
 
         // Initialize LEDs
-        let mut status_leds = leds::StatusLeds::new(
+        let mut status_leds = StatusLeds::new(
             gpiob.pb1.into_push_pull_output().downgrade(),
             gpiob.pb0.into_push_pull_output().downgrade(),
             gpioa.pa7.into_push_pull_output().downgrade(),
@@ -82,29 +84,28 @@ const APP: () = {
 
     #[task(binds = TIM6, resources = [status_leds, timer])]
     fn timer(ctx: timer::Context) {
-        static mut STATE: u8 = 0;
+        static mut STATE: LedState = LedState::Green;
 
         // Clear the interrupt flag
         ctx.resources.timer.clear_irq();
 
         // Change LED on every interrupt
-        match *STATE {
-            0 => {
+        match STATE {
+            LedState::Green => {
                 ctx.resources.status_leds.disable_green();
                 ctx.resources.status_leds.enable_red();
-                *STATE = 1;
+                *STATE = LedState::Red;
             }
-            1 => {
+            LedState::Red => {
                 ctx.resources.status_leds.disable_red();
                 ctx.resources.status_leds.enable_yellow();
-                *STATE = 2;
+                *STATE = LedState::Yellow;
             }
-            2 => {
+            LedState::Yellow => {
                 ctx.resources.status_leds.disable_yellow();
                 ctx.resources.status_leds.enable_green();
-                *STATE = 0;
+                *STATE = LedState::Green;
             }
-            _ => unreachable!(),
         }
     }
 

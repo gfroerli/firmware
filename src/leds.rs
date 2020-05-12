@@ -57,3 +57,10 @@ impl StatusLeds {
         self.disable_green();
     }
 }
+
+/// Used by timer that cycles through LEDs.
+pub(crate) enum LedState {
+    Red,
+    Yellow,
+    Green,
+}
