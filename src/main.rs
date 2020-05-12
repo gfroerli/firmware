@@ -10,8 +10,12 @@ use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, pac, serial, time};
 
 mod leds;
+mod version;
 
 use leds::{LedState, StatusLeds};
+use version::HardwareVersionDetector;
+
+const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[app(device = stm32l0::stm32l0x1, peripherals = true)]
 const APP: () = {
@@ -62,8 +66,21 @@ const APP: () = {
         )
         .unwrap();
 
-        writeln!(debug, "Greetings, Rusty world, from Gfrörli v2!").unwrap();
-        writeln!(debug, "Debug output initialized on USART1!").unwrap();
+        // Initialize version detector
+        let mut hardware_version = HardwareVersionDetector::new(
+            gpioa.pa12.into_floating_input(),
+            gpiob.pb4.into_floating_input(),
+            gpiob.pb5.into_floating_input(),
+        );
+
+        // Show versions
+        writeln!(
+            debug,
+            "Gfrörli firmware={} hardware={}",
+            FIRMWARE_VERSION,
+            hardware_version.detect(),
+        )
+        .unwrap();
 
         // Initialize LEDs
         let mut status_leds = StatusLeds::new(
