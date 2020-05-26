@@ -23,6 +23,8 @@ codegen-units = 1
 [dependencies]
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
+cortex-m-rtfm = "0.5"
 embedded-hal = { version = "0.2.2", features = ["unproven"] }
 panic-halt = "0.2" # Use ITM or panic-persist in the future
-stm32l0xx-hal = { version = "0.6.0", features = ["rt", "mcu-STM32L071KBTx"] }
+stm32l0 = "0.10.0"
+stm32l0xx-hal = { git = "ssh://git@github.com/gfroerli/stm32l0xx-hal.git", branch = "tim6", features = ["rt", "mcu-STM32L071KBTx"] }

@@ -10,7 +10,10 @@ workflows:
 jobs:
   build:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.43.0
+    environment:
+      # https://github.com/rust-lang/cargo/issues/2078
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - checkout
       - run: apt update -y
@@ -20,7 +23,7 @@ jobs:
 
   fmt:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.43.0
     steps:
       - checkout
       - run: rustup component add rustfmt
