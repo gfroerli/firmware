@@ -27,4 +27,4 @@ cortex-m-rtfm = "0.5"
 embedded-hal = { version = "0.2.2", features = ["unproven"] }
 panic-halt = "0.2" # Use ITM or panic-persist in the future
 stm32l0 = "0.10.0"
-stm32l0xx-hal = { git = "ssh://git@github.com/gfroerli/stm32l0xx-hal.git", branch = "tim6", features = ["rt", "mcu-STM32L071KBTx"] }
+stm32l0xx-hal = { git = "ssh://git@github.com/stm32-rs/stm32l0xx-hal.git", branch = "master", features = ["rt", "mcu-STM32L071KBTx"] }
