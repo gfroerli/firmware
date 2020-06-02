@@ -6,12 +6,23 @@ extern crate panic_halt;
 use core::fmt::Write;
 
 use rtfm::app;
+use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
+use stm32l0::stm32l0x1::I2C1;
+use stm32l0xx_hal::gpio::{
+    gpioa::{PA10, PA9},
+    OpenDrain, Output,
+};
 use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, pac, serial, time};
+use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
 mod leds;
 
 use leds::{LedState, StatusLeds};
+
+enum ShtState {
+    StartMeasurement,
+    ReadResults,
+}
 
 #[app(device = stm32l0::stm32l0x1, peripherals = true)]
 const APP: () = {
@@ -21,15 +32,19 @@ const APP: () = {
 
         status_leds: StatusLeds,
         timer: hal::timer::Timer<pac::TIM6>,
+        sht_timer: hal::timer::Timer<pac::TIM3>,
+        sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
     }
 
     #[init]
     fn init(ctx: init::Context) -> init::LateResources {
-        let _p: cortex_m::Peripherals = ctx.core;
+        let p: cortex_m::Peripherals = ctx.core;
         let dp: pac::Peripherals = ctx.device;
 
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
+        let syst = p.SYST;
+        let mut delay = hal::delay::Delay::new(syst, rcc.clocks);
 
         // TODO: Use the MSI (Multispeed Internal) clock source instead.
         // However, currently the timer cannot be initialized (at least when
@@ -42,6 +57,9 @@ const APP: () = {
         // consumption than TIM2/3 or TIM21/22.
         let mut timer = hal::timer::Timer::tim6(dp.TIM6, 2.hz(), &mut rcc);
         timer.listen();
+
+        let mut sht_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
+        sht_timer.listen();
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -73,12 +91,22 @@ const APP: () = {
         );
         status_leds.disable_all();
 
+        let sda = gpioa.pa10.into_open_drain_output();
+        let scl = gpioa.pa9.into_open_drain_output();
+        let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
+
+        let mut sht = shtc3(i2c);
+        sht.wakeup(&mut delay)
+            .expect("SHTCx: Could not wake up sensor");
+
         writeln!(debug, "Initialization done").unwrap();
 
         init::LateResources {
             debug,
             status_leds,
             timer,
+            sht,
+            sht_timer,
         }
     }
 
@@ -105,6 +133,39 @@ const APP: () = {
                 ctx.resources.status_leds.disable_yellow();
                 ctx.resources.status_leds.enable_green();
                 *STATE = LedState::Green;
+            }
+        }
+    }
+
+    #[task(binds = TIM3, resources = [sht_timer, sht, debug])]
+    fn sht_timer(ctx: sht_timer::Context) {
+        static mut STATE: ShtState = ShtState::StartMeasurement;
+
+        // Clear the interrupt flag
+        ctx.resources.sht_timer.clear_irq();
+
+        *STATE = match STATE {
+            ShtState::StartMeasurement => {
+                ctx.resources
+                    .sht
+                    .start_measurement(PowerMode::NormalMode)
+                    .expect("SHTCx: Failed to start measurement");
+                ShtState::ReadResults
+            }
+            ShtState::ReadResults => {
+                let measurement = ctx
+                    .resources
+                    .sht
+                    .get_measurement_result()
+                    .expect("SHTCx: Failed to read measurement");
+                writeln!(
+                    ctx.resources.debug,
+                    " {:.2} °C, {:.2} %RH",
+                    measurement.temperature.as_degrees_celsius(),
+                    measurement.humidity.as_percent()
+                )
+                .unwrap();
+                ShtState::StartMeasurement
             }
         }
     }
