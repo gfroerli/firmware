@@ -3,7 +3,7 @@
 
 extern crate panic_halt;
 
-use core::fmt::Write;
+use core::fmt::{Write, Debug};
 
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
@@ -14,6 +14,34 @@ use stm32l0xx_hal::gpio::{
 };
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
+
+use embedded_hal::blocking::delay::DelayUs;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
+use one_wire_bus::OneWire;
+
+fn find_devices<P, E>(
+    delay: &mut impl DelayUs<u16>,
+    tx: &mut impl Write,
+    one_wire_pin: P,
+)
+    where
+        P: OutputPin<Error=E> + InputPin<Error=E>,
+        E: Debug
+{
+    let mut one_wire_bus = OneWire::new(one_wire_pin).unwrap();
+    for device_address in one_wire_bus.devices(false, delay) {
+        // The search could fail at any time, so check each result. The iterator automatically
+        // ends after an error.
+        let device_address = device_address.unwrap();
+
+        // The family code can be used to identify the type of device
+        // If supported, another crate can be used to interact with that device at the given address
+        writeln!(tx, "Found device at address {:?} with family code: {:#x?}",
+                 device_address, device_address.family_code()).unwrap();
+    }
+}
+
+
 
 mod leds;
 mod version;
@@ -99,6 +127,10 @@ const APP: () = {
             hardware_version.detect(),
         )
         .unwrap();
+
+        let one_wire_pin = gpioa.pa6.into_open_drain_output();
+        find_devices(&mut delay, &mut debug, one_wire_pin);
+
 
         // Initialize LEDs
         let mut status_leds = StatusLeds::new(
