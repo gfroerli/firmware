@@ -1,3 +1,5 @@
+//! Controlling the status LEDs.
+
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{
     self as hal,
