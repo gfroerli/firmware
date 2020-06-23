@@ -106,6 +106,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ds18b20"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "embedded-hal 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "one-wire-bus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -137,6 +146,7 @@ dependencies = [
  "cortex-m 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ds18b20 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "one-wire-bus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "panic-halt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -343,6 +353,7 @@ dependencies = [
 "checksum cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "04cd388b154c7e7d212c5af7541ee1f174f29ccb0c22e9117f8d13a5aad233b6"
 "checksum cortex-m-rtic-macros 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "29e29e01b3ec80d59bfd96aaf94d04008bebfde3ab7016e12bfbd6c0b466d22a"
 "checksum cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "113ef0ecffee2b62b58f9380f4469099b30e9f9cbee2804771b4203ba1762cfa"
+"checksum ds18b20 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2f08f76f96440dae1373b1e346bfef12d55b0d74525bb628e892dbf68d1909bc"
 "checksum embedded-hal 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ee4908a155094da7723c2d60d617b820061e3b4efcc3d9e293d206a5a76c170b"
 "checksum generic-array 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c68f0274ae0e023facc3c97b2e00f076be70e254bc851d972503b328db79b2ec"
 "checksum generic-array 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0ed1e761351b56f54eb9dcd0cfaca9fd0daecf93918e1cfc01c8a3d26ee7adcd"

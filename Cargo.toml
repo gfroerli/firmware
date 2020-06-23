@@ -30,3 +30,4 @@ stm32l0 = "0.10.0"
 stm32l0xx-hal = { git = "ssh://git@github.com/stm32-rs/stm32l0xx-hal.git", branch = "master", features = ["rt", "mcu-STM32L071KBTx"] }
 shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 one-wire-bus = "0.1.1"
+ds18b20 = "0.1.0"
