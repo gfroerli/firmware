@@ -5,7 +5,7 @@ extern crate panic_halt;
 
 use core::fmt::Write;
 
-use rtfm::app;
+use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0::stm32l0x1::I2C1;
 use stm32l0xx_hal::gpio::{
@@ -170,7 +170,7 @@ const APP: () = {
         }
     }
 
-    // RTFM requires that free interrupts are declared in an extern block when
+    // RTIC requires that free interrupts are declared in an extern block when
     // using software tasks; these free interrupts will be used to dispatch the
     // software tasks.
     extern "C" {
