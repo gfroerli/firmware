@@ -5,6 +5,8 @@ extern crate panic_halt;
 
 use core::fmt::Write;
 
+use ds18b20::Ds18b20;
+use one_wire_bus::OneWire;
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0::stm32l0x1::I2C1;
@@ -14,9 +16,6 @@ use stm32l0xx_hal::gpio::{
 };
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, delay::Delay, i2c::I2c, pac, serial, time};
-
-use ds18b20::Ds18b20;
-use one_wire_bus::OneWire;
 
 mod ds18b20_utils;
 mod leds;
