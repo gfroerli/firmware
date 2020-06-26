@@ -21,11 +21,13 @@ mod delay;
 mod ds18b20_utils;
 mod leds;
 mod monotonic_stm32l0;
+mod supply_monitor;
 mod version;
 
 use delay::Tim7Delay;
 use leds::{LedState, StatusLeds};
 use monotonic_stm32l0::{Tim6Monotonic, U16Ext};
+use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -111,6 +113,14 @@ const APP: () = {
             hardware_version.detect(),
         )
         .unwrap();
+
+        // Initialize supply monitor
+        let adc = dp.ADC.constrain(&mut rcc);
+        let a1 = gpioa.pa1.into_analog();
+        let adc_enable_pin = gpioa.pa5.into_push_pull_output().downgrade();
+        let mut supply_monitor = SupplyMonitor::new(a1, adc, adc_enable_pin);
+        let val = supply_monitor.read_supply();
+        writeln!(debug, "Supply: {}", val).unwrap();
 
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire =
