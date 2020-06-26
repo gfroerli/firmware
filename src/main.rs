@@ -201,8 +201,9 @@ const APP: () = {
                     .expect("DS18B20: Failed to read measurement");
                 writeln!(
                     ctx.resources.debug,
-                    "{:.2} °C, {:.2} °C, {:.2} %RH",
+                    "{:.2} °C ({:?}), {:.2} °C, {:.2} %RH",
                     ds18b20_measurement.temperature,
+                    ds18b20_measurement.resolution,
                     measurement.temperature.as_degrees_celsius(),
                     measurement.humidity.as_percent()
                 )
