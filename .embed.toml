@@ -1,0 +1,13 @@
+[default.general]
+chip = "STM32L071KBTx"
+
+[default.probe]
+protocol = "Swd"
+speed = 1337
+
+[default.flashing]
+enabled = false
+
+[flash.flashing]
+enabled = true
+restore_unwritten_bytes = false

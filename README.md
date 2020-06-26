@@ -27,6 +27,13 @@ In another terminal:
     cargo run
 
 
+## Flash
+
+Use `cargo-embed` (0.8+):
+
+    cargo embed flash --release
+
+
 ## License
 
 Licensed under GPL-3.0 license ([LICENSE.md](LICENSE.md) or
