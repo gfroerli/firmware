@@ -39,7 +39,7 @@ const APP: () = {
 
         status_leds: StatusLeds,
         timer: hal::timer::Timer<pac::TIM6>,
-        sht_timer: hal::timer::Timer<pac::TIM3>,
+        measurement_timer: hal::timer::Timer<pac::TIM3>,
         sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
         ds18b20: Ds18b20,
@@ -68,8 +68,8 @@ const APP: () = {
         let mut timer = hal::timer::Timer::tim6(dp.TIM6, 2.hz(), &mut rcc);
         timer.listen();
 
-        let mut sht_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
-        sht_timer.listen();
+        let mut measurement_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
+        measurement_timer.listen();
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -135,7 +135,7 @@ const APP: () = {
             status_leds,
             timer,
             sht,
-            sht_timer,
+            measurement_timer,
             one_wire,
             ds18b20,
             delay,
@@ -169,12 +169,12 @@ const APP: () = {
         }
     }
 
-    #[task(binds = TIM3, resources = [sht_timer, sht, debug, one_wire, delay, ds18b20])]
-    fn sht_timer(mut ctx: sht_timer::Context) {
+    #[task(binds = TIM3, resources = [measurement_timer, sht, debug, one_wire, delay, ds18b20])]
+    fn measurement_timer(mut ctx: measurement_timer::Context) {
         static mut STATE: ShtState = ShtState::StartMeasurement;
 
         // Clear the interrupt flag
-        ctx.resources.sht_timer.clear_irq();
+        ctx.resources.measurement_timer.clear_irq();
 
         *STATE = match STATE {
             ShtState::StartMeasurement => {
