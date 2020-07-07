@@ -5,16 +5,19 @@ extern crate panic_halt;
 
 use core::fmt::Write;
 
+use ds18b20::Ds18b20;
+use one_wire_bus::OneWire;
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0::stm32l0x1::I2C1;
 use stm32l0xx_hal::gpio::{
-    gpioa::{PA10, PA9},
+    gpioa::{PA10, PA6, PA9},
     OpenDrain, Output,
 };
 use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
+use stm32l0xx_hal::{self as hal, delay::Delay, i2c::I2c, pac, serial, time};
 
+mod ds18b20_utils;
 mod leds;
 mod version;
 
@@ -36,8 +39,11 @@ const APP: () = {
 
         status_leds: StatusLeds,
         timer: hal::timer::Timer<pac::TIM6>,
-        sht_timer: hal::timer::Timer<pac::TIM3>,
+        measurement_timer: hal::timer::Timer<pac::TIM3>,
         sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
+        one_wire: OneWire<PA6<Output<OpenDrain>>>,
+        ds18b20: Ds18b20,
+        delay: Delay,
     }
 
     #[init]
@@ -62,8 +68,8 @@ const APP: () = {
         let mut timer = hal::timer::Timer::tim6(dp.TIM6, 2.hz(), &mut rcc);
         timer.listen();
 
-        let mut sht_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
-        sht_timer.listen();
+        let mut measurement_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
+        measurement_timer.listen();
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -100,6 +106,12 @@ const APP: () = {
         )
         .unwrap();
 
+        let one_wire_pin = gpioa.pa6.into_open_drain_output();
+        let mut one_wire =
+            ds18b20_utils::create_and_scan_one_wire(&mut delay, &mut debug, one_wire_pin);
+        let ds18b20 = ds18b20_utils::get_ds18b20_sensor(&mut delay, &mut one_wire)
+            .expect("Could not find ds18b20 sensor");
+
         // Initialize LEDs
         let mut status_leds = StatusLeds::new(
             gpiob.pb1.into_push_pull_output().downgrade(),
@@ -123,7 +135,10 @@ const APP: () = {
             status_leds,
             timer,
             sht,
-            sht_timer,
+            measurement_timer,
+            one_wire,
+            ds18b20,
+            delay,
         }
     }
 
@@ -154,12 +169,12 @@ const APP: () = {
         }
     }
 
-    #[task(binds = TIM3, resources = [sht_timer, sht, debug])]
-    fn sht_timer(ctx: sht_timer::Context) {
+    #[task(binds = TIM3, resources = [measurement_timer, sht, debug, one_wire, delay, ds18b20])]
+    fn measurement_timer(mut ctx: measurement_timer::Context) {
         static mut STATE: ShtState = ShtState::StartMeasurement;
 
         // Clear the interrupt flag
-        ctx.resources.sht_timer.clear_irq();
+        ctx.resources.measurement_timer.clear_irq();
 
         *STATE = match STATE {
             ShtState::StartMeasurement => {
@@ -167,6 +182,10 @@ const APP: () = {
                     .sht
                     .start_measurement(PowerMode::NormalMode)
                     .expect("SHTCx: Failed to start measurement");
+                ctx.resources
+                    .ds18b20
+                    .start_temp_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
+                    .expect("DS18B20: Failed to start measurement");
                 ShtState::ReadResults
             }
             ShtState::ReadResults => {
@@ -175,9 +194,16 @@ const APP: () = {
                     .sht
                     .get_measurement_result()
                     .expect("SHTCx: Failed to read measurement");
+                let ds18b20_measurement = ctx
+                    .resources
+                    .ds18b20
+                    .read_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+                    .expect("DS18B20: Failed to read measurement");
                 writeln!(
                     ctx.resources.debug,
-                    " {:.2} °C, {:.2} %RH",
+                    "{:.2} °C ({:?}), {:.2} °C, {:.2} %RH",
+                    ds18b20_measurement.temperature,
+                    ds18b20_measurement.resolution,
                     measurement.temperature.as_degrees_celsius(),
                     measurement.humidity.as_percent()
                 )
