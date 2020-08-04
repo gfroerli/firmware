@@ -1,3 +1,5 @@
+# Chip and probe config
+
 [default.general]
 chip = "STM32L071KBTx"
 
@@ -5,9 +7,24 @@ chip = "STM32L071KBTx"
 protocol = "Swd"
 speed = 2500
 
+# Disable everything for default command
+
 [default.flashing]
 enabled = false
+
+[default.reset]
+enabled = false
+
+# Flash target
 
 [flash.flashing]
 enabled = true
 restore_unwritten_bytes = false
+
+[flash.reset]
+enabled = true
+
+# Reset target without flashing
+
+[reset.reset]
+enabled = true

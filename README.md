@@ -33,6 +33,10 @@ Use `cargo-embed` (0.8+):
 
     cargo embed flash --release
 
+To reset the target without flashing (requires `cargo-embed` 0.9+):
+
+    cargo embed reset
+
 
 ## License
 
