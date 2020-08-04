@@ -13,9 +13,11 @@ pub struct SupplyMonitor {
 impl SupplyMonitor {
     pub fn new(
         adc_pin: PA1<Analog>,
-        adc: Adc<adc::Ready>,
+        mut adc: Adc<adc::Ready>,
         enable_pin: PA<Output<PushPull>>,
     ) -> Self {
+        adc.set_precision(adc::Precision::B_12);
+        adc.set_sample_time(adc::SampleTime::T_79_5);
         SupplyMonitor {
             adc_pin,
             adc,
