@@ -15,12 +15,14 @@ use stm32l0xx_hal::gpio::{
     OpenDrain, Output,
 };
 use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, delay::Delay, i2c::I2c, pac, serial, time};
+use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
+mod delay;
 mod ds18b20_utils;
 mod leds;
 mod version;
 
+use delay::Tim7Delay;
 use leds::{LedState, StatusLeds};
 use version::HardwareVersionDetector;
 
@@ -43,18 +45,16 @@ const APP: () = {
         sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
         ds18b20: Ds18b20,
-        delay: Delay,
+        delay: Tim7Delay,
     }
 
     #[init]
     fn init(ctx: init::Context) -> init::LateResources {
-        let p: cortex_m::Peripherals = ctx.core;
+        let _p: cortex_m::Peripherals = ctx.core;
         let dp: pac::Peripherals = ctx.device;
 
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
-        let syst = p.SYST;
-        let mut delay = hal::delay::Delay::new(syst, rcc.clocks);
 
         // TODO: Use the MSI (Multispeed Internal) clock source instead.
         // However, currently the timer cannot be initialized (at least when
@@ -62,6 +62,9 @@ const APP: () = {
         //let mut rcc = dp.RCC.freeze(
         //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
         //);
+
+        // Init delay timer
+        let mut delay = delay::Tim7Delay::new(dp.TIM7);
 
         // Initialize timer to blink LEDs. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
