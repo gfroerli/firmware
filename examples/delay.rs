@@ -1,0 +1,51 @@
+//! Toggle the serial TX pin. Useful for verifying the delay implementation using a
+//! logic analyzer.
+
+#![no_main]
+#![no_std]
+
+extern crate panic_halt;
+
+use rtic::app;
+use stm32l0xx_hal::prelude::*;
+use stm32l0xx_hal::{self as hal, pac};
+
+use gfroerli_firmware::delay;
+
+#[app(device = stm32l0::stm32l0x1, peripherals = true)]
+const APP: () = {
+    #[init]
+    fn init(ctx: init::Context) {
+        let dp: pac::Peripherals = ctx.device;
+
+        // Clock configuration. Use HSI at 16 MHz.
+        let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
+
+        // Delay provider
+        let mut delay = delay::Tim7Delay::new(dp.TIM7);
+
+        // Toggle serial TX pin with delay
+        let gpiob = dp.GPIOB.split(&mut rcc);
+        let mut pin = gpiob.pb6.into_push_pull_output();
+
+        // Trigger signal: Pull low for 100 µs, then high for 50 µs
+        pin.set_low().unwrap();
+        delay.delay_us(100);
+        pin.set_high().unwrap();
+        delay.delay_us(50);
+
+        // Toggle with increasing durations
+        for i in 1..=10 {
+            pin.set_low().unwrap();
+            delay.delay_us(i);
+            pin.set_high().unwrap();
+            delay.delay_us(i);
+        }
+        for i in 1..=10 {
+            pin.set_low().unwrap();
+            delay.delay_ms(i);
+            pin.set_high().unwrap();
+            delay.delay_ms(i);
+        }
+    }
+};
