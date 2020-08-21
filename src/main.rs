@@ -30,11 +30,6 @@ use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-enum ShtState {
-    StartMeasurement,
-    ReadResults,
-}
-
 #[app(
     device = stm32l0::stm32l0x1,
     peripherals = true,
@@ -42,18 +37,24 @@ enum ShtState {
 )]
 const APP: () = {
     struct Resources {
-        /// Serial debug output
+        // Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
 
+        // Status LEDs
         status_leds: StatusLeds,
-        measurement_timer: hal::timer::Timer<pac::TIM3>,
+
+        // SHT temperature/humidity sensor
         sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
+
+        // DS18B20 water temperature sensor
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
         ds18b20: Ds18b20,
+
+        // Blocking delay provider
         delay: Tim7Delay,
     }
 
-    #[init(spawn = [toggle_led])]
+    #[init(spawn = [toggle_led, start_measurements])]
     fn init(ctx: init::Context) -> init::LateResources {
         let _p: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
@@ -75,9 +76,6 @@ const APP: () = {
         // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
         Tim6Monotonic::initialize(dp.TIM6);
-
-        let mut measurement_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
-        measurement_timer.listen();
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -136,8 +134,9 @@ const APP: () = {
         sht.wakeup(&mut delay)
             .expect("SHTCx: Could not wake up sensor");
 
-        // Schedule LED task
+        // Spawn tasks
         ctx.spawn.toggle_led().unwrap();
+        ctx.spawn.start_measurements().unwrap();
 
         writeln!(debug, "Initialization done").unwrap();
 
@@ -145,7 +144,6 @@ const APP: () = {
             debug,
             status_leds,
             sht,
-            measurement_timer,
             one_wire,
             ds18b20,
             delay,
@@ -176,51 +174,59 @@ const APP: () = {
         }
 
         // Re-schedule ourselves
-        ctx.schedule.toggle_led(ctx.scheduled + 500.millis()).unwrap();
+        ctx.schedule
+            .toggle_led(ctx.scheduled + 500.millis())
+            .unwrap();
     }
 
-    #[task(binds = TIM3, resources = [measurement_timer, sht, debug, one_wire, delay, ds18b20])]
-    fn measurement_timer(mut ctx: measurement_timer::Context) {
-        static mut STATE: ShtState = ShtState::StartMeasurement;
+    /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
+    #[task(resources = [delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
+    fn start_measurements(mut ctx: start_measurements::Context) {
+        ctx.resources
+            .sht
+            .start_measurement(PowerMode::NormalMode)
+            .expect("SHTCx: Failed to start measurement");
+        ctx.resources
+            .ds18b20
+            .start_temp_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
+            .expect("DS18B20: Failed to start measurement");
 
-        // Clear the interrupt flag
-        ctx.resources.measurement_timer.clear_irq();
+        // Schedule reading of the measurement results
+        ctx.schedule
+            .read_measurement_results(ctx.scheduled + 500.millis())
+            .unwrap();
+    }
 
-        *STATE = match STATE {
-            ShtState::StartMeasurement => {
-                ctx.resources
-                    .sht
-                    .start_measurement(PowerMode::NormalMode)
-                    .expect("SHTCx: Failed to start measurement");
-                ctx.resources
-                    .ds18b20
-                    .start_temp_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
-                    .expect("DS18B20: Failed to start measurement");
-                ShtState::ReadResults
-            }
-            ShtState::ReadResults => {
-                let measurement = ctx
-                    .resources
-                    .sht
-                    .get_measurement_result()
-                    .expect("SHTCx: Failed to read measurement");
-                let ds18b20_measurement = ctx
-                    .resources
-                    .ds18b20
-                    .read_data(&mut ctx.resources.one_wire, ctx.resources.delay)
-                    .expect("DS18B20: Failed to read measurement");
-                writeln!(
-                    ctx.resources.debug,
-                    "{:.2} °C ({:?}), {:.2} °C, {:.2} %RH",
-                    ds18b20_measurement.temperature,
-                    ds18b20_measurement.resolution,
-                    measurement.temperature.as_degrees_celsius(),
-                    measurement.humidity.as_percent()
-                )
-                .unwrap();
-                ShtState::StartMeasurement
-            }
-        }
+    /// Read measurement results from the sensors. Re-schedule a measurement.
+    #[task(resources = [debug, delay, sht, one_wire, ds18b20], schedule = [start_measurements])]
+    fn read_measurement_results(mut ctx: read_measurement_results::Context) {
+        // Fetch measurement results
+        let measurement = ctx
+            .resources
+            .sht
+            .get_measurement_result()
+            .expect("SHTCx: Failed to read measurement");
+        let ds18b20_measurement = ctx
+            .resources
+            .ds18b20
+            .read_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+            .expect("DS18B20: Failed to read measurement");
+
+        // Print results
+        writeln!(
+            ctx.resources.debug,
+            "{:.2} °C ({:?}), {:.2} °C, {:.2} %RH",
+            ds18b20_measurement.temperature,
+            ds18b20_measurement.resolution,
+            measurement.temperature.as_degrees_celsius(),
+            measurement.humidity.as_percent()
+        )
+        .unwrap();
+
+        // Re-schedule a measurement
+        ctx.schedule
+            .start_measurements(ctx.scheduled + 500.millis())
+            .unwrap();
     }
 
     // RTIC requires that free interrupts are declared in an extern block when
