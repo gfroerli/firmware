@@ -20,10 +20,12 @@ use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 mod delay;
 mod ds18b20_utils;
 mod leds;
+mod monotonic_stm32l0;
 mod version;
 
 use delay::Tim7Delay;
 use leds::{LedState, StatusLeds};
+use monotonic_stm32l0::{Tim6Monotonic, U16Ext};
 use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -33,14 +35,17 @@ enum ShtState {
     ReadResults,
 }
 
-#[app(device = stm32l0::stm32l0x1, peripherals = true)]
+#[app(
+    device = stm32l0::stm32l0x1,
+    peripherals = true,
+    monotonic = crate::monotonic_stm32l0::Tim6Monotonic,
+)]
 const APP: () = {
     struct Resources {
         /// Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
 
         status_leds: StatusLeds,
-        timer: hal::timer::Timer<pac::TIM6>,
         measurement_timer: hal::timer::Timer<pac::TIM3>,
         sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
@@ -48,9 +53,9 @@ const APP: () = {
         delay: Tim7Delay,
     }
 
-    #[init]
+    #[init(spawn = [toggle_led])]
     fn init(ctx: init::Context) -> init::LateResources {
-        let _p: cortex_m::Peripherals = ctx.core;
+        let _p: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
 
         // Init delay timer
@@ -59,17 +64,17 @@ const APP: () = {
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
 
-        // TODO: Use the MSI (Multispeed Internal) clock source instead.
+        // TODO: Use the MSI (Multispeed Internal) clock source instead?
         // However, currently the timer cannot be initialized (at least when
         // connected through the debugger) when enabling MSI.
+        // Note that using MSI will require updating the monotonic impl.
         //let mut rcc = dp.RCC.freeze(
         //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
         //);
 
-        // Initialize timer to blink LEDs. Use TIM6 since it has lower current
+        // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
-        let mut timer = hal::timer::Timer::tim6(dp.TIM6, 2.hz(), &mut rcc);
-        timer.listen();
+        Tim6Monotonic::initialize(dp.TIM6);
 
         let mut measurement_timer = hal::timer::Timer::tim3(dp.TIM3, 2.hz(), &mut rcc);
         measurement_timer.listen();
@@ -131,12 +136,14 @@ const APP: () = {
         sht.wakeup(&mut delay)
             .expect("SHTCx: Could not wake up sensor");
 
+        // Schedule LED task
+        ctx.spawn.toggle_led().unwrap();
+
         writeln!(debug, "Initialization done").unwrap();
 
         init::LateResources {
             debug,
             status_leds,
-            timer,
             sht,
             measurement_timer,
             one_wire,
@@ -145,12 +152,9 @@ const APP: () = {
         }
     }
 
-    #[task(binds = TIM6, resources = [status_leds, timer])]
-    fn timer(ctx: timer::Context) {
+    #[task(schedule = [toggle_led], resources = [status_leds])]
+    fn toggle_led(ctx: toggle_led::Context) {
         static mut STATE: LedState = LedState::Green;
-
-        // Clear the interrupt flag
-        ctx.resources.timer.clear_irq();
 
         // Change LED on every interrupt
         match STATE {
@@ -170,6 +174,9 @@ const APP: () = {
                 *STATE = LedState::Green;
             }
         }
+
+        // Re-schedule ourselves
+        ctx.schedule.toggle_led(ctx.scheduled + 500.millis()).unwrap();
     }
 
     #[task(binds = TIM3, resources = [measurement_timer, sht, debug, one_wire, delay, ds18b20])]
