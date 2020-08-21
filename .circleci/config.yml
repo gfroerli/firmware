@@ -19,7 +19,7 @@ jobs:
       - run: apt update -y
       - run: apt install -y gcc-arm-none-eabi
       - run: rustup target add thumbv6m-none-eabi
-      - run: cargo build --release
+      - run: cargo build --release --bins --examples
 
   fmt:
     docker:
