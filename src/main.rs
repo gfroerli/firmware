@@ -30,12 +30,17 @@ mod version;
 use config::Config;
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
-use leds::{LedState, StatusLeds};
-use monotonic_stm32l0::{Tim6Monotonic, U16Ext};
+use leds::StatusLeds;
+use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+enum LedDisableTarget {
+    Red,
+    All,
+}
 
 #[app(
     device = stm32l0::stm32l0x1,
@@ -64,7 +69,7 @@ const APP: () = {
         delay: Tim7Delay,
     }
 
-    #[init(spawn = [toggle_led, start_measurements])]
+    #[init(spawn = [join, start_measurements])]
     fn init(ctx: init::Context) -> init::LateResources {
         let _p: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
@@ -232,15 +237,8 @@ const APP: () = {
         rn.set_app_key_hex(env!("GFROERLI_APP_KEY"))
             .expect("Could not set app key");
 
-        // Join
-        writeln!(debug, "RN2483: Joining via OTAA...").unwrap();
-        match rn.join(JoinMode::Otaa) {
-            Ok(()) => writeln!(debug, "RN2483: Join successful").unwrap(),
-            Err(e) => writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap(),
-        }
-
         // Spawn tasks
-        ctx.spawn.toggle_led().unwrap();
+        ctx.spawn.join().unwrap();
         ctx.spawn.start_measurements().unwrap();
 
         writeln!(debug, "Initialization done").unwrap();
@@ -256,33 +254,44 @@ const APP: () = {
         }
     }
 
-    #[task(schedule = [toggle_led], resources = [status_leds])]
-    fn toggle_led(ctx: toggle_led::Context) {
-        static mut STATE: LedState = LedState::Green;
+    /// Join LoRaWAN network via OTAA.
+    #[task(resources = [debug, status_leds, rn], schedule = [disable_led], priority = 1)]
+    fn join(ctx: join::Context) {
+        let debug = ctx.resources.debug;
+        let mut status_leds = ctx.resources.status_leds;
+        let rn = ctx.resources.rn;
 
-        // Change LED on every interrupt
-        match STATE {
-            LedState::Green => {
-                ctx.resources.status_leds.disable_green();
-                ctx.resources.status_leds.enable_red();
-                *STATE = LedState::Red;
-            }
-            LedState::Red => {
-                ctx.resources.status_leds.disable_red();
-                ctx.resources.status_leds.enable_yellow();
-                *STATE = LedState::Yellow;
-            }
-            LedState::Yellow => {
-                ctx.resources.status_leds.disable_yellow();
-                ctx.resources.status_leds.enable_green();
-                *STATE = LedState::Green;
+        status_leds.lock(|leds: &mut StatusLeds| leds.enable_yellow());
+        for i in 1..=3 {
+            writeln!(debug, "RN2483: Joining via OTAA (attempt {})…", i).unwrap();
+            match rn.join(JoinMode::Otaa) {
+                Ok(()) => {
+                    writeln!(debug, "RN2483: Join successful").unwrap();
+                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_green());
+                    ctx.schedule
+                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::All)
+                        .ok()
+                        .unwrap();
+                    break;
+                }
+                Err(e) => {
+                    writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap();
+                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_red());
+                    ctx.schedule
+                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::Red)
+                        .ok()
+                        .unwrap();
+                }
             }
         }
+    }
 
-        // Re-schedule ourselves
-        ctx.schedule
-            .toggle_led(ctx.scheduled + 500.millis())
-            .unwrap();
+    #[task(resources = [status_leds], capacity = 2, priority = 2)]
+    fn disable_led(ctx: disable_led::Context, target: LedDisableTarget) {
+        match target {
+            LedDisableTarget::Red => ctx.resources.status_leds.disable_red(),
+            LedDisableTarget::All => ctx.resources.status_leds.disable_all(),
+        }
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
