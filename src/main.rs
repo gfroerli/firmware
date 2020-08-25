@@ -6,6 +6,7 @@ use core::fmt::Write;
 
 use one_wire_bus::OneWire;
 use panic_persist as _;
+use rn2xx3::{rn2483_868, Driver as Rn2xx3, Freq868};
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0xx_hal::gpio::{
@@ -56,6 +57,9 @@ const APP: () = {
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
         ds18b20: Ds18b20,
 
+        // RN2483
+        rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
+
         // Blocking delay provider
         delay: Tim7Delay,
     }
@@ -92,6 +96,20 @@ const APP: () = {
             dp.USART1,
             gpiob.pb6.into_floating_input(),
             gpiob.pb7.into_floating_input(),
+            serial::Config {
+                baudrate: time::Bps(57_600),
+                wordlength: serial::WordLength::DataBits8,
+                parity: serial::Parity::ParityNone,
+                stopbits: serial::StopBits::STOP1,
+            },
+            &mut rcc,
+        )
+        .unwrap();
+        let lpuart1 = serial::Serial::lpuart1(
+            dp.LPUART1,
+            gpioa.pa2.into_floating_input(),
+            gpioa.pa3.into_floating_input(),
+            // Config: See RN2483 datasheet, table 3-1
             serial::Config {
                 baudrate: time::Bps(57_600),
                 wordlength: serial::WordLength::DataBits8,
@@ -159,7 +177,8 @@ const APP: () = {
         let val = supply_monitor.read_supply();
         writeln!(debug, "Supply: {:?}", val).unwrap();
 
-        writeln!(debug, "Initialize one-wire DS18B20 sensor").unwrap();
+        // Initialize DS18B20
+        writeln!(debug, "Init DS18B20…").unwrap();
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire = OneWire::new(one_wire_pin).unwrap();
         let ds18b20 =
@@ -174,14 +193,37 @@ const APP: () = {
         );
         status_leds.disable_all();
 
+        // Set up I²C pins
         writeln!(debug, "Initialize I²C peripheral").unwrap();
         let sda = gpioa.pa10.into_open_drain_output();
         let scl = gpioa.pa9.into_open_drain_output();
         let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
 
+        // Initialize SHTC3
+        writeln!(debug, "Init SHTC3…").unwrap();
         let mut sht = shtc3(i2c);
         sht.wakeup(&mut delay)
             .expect("SHTCx: Could not wake up sensor");
+
+        // Initialize RN2xx3
+        writeln!(debug, "Init RN2483…").unwrap();
+        let mut rn = rn2483_868(lpuart1);
+        writeln!(debug, "RN2483: Hard reset…").unwrap();
+        let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
+        rn_reset_pin.set_low().expect("Could not set RN reset pin");
+        delay.delay_us(1000); // TODO: How long?
+        rn_reset_pin.set_high().expect("Could not set RN reset pin");
+        let version = rn.reset().expect("Could not soft reset");
+        writeln!(debug, "RN2483: Version {}", version).unwrap();
+
+        // Show device info
+        writeln!(debug, "RN2483: Device info").unwrap();
+        let hweui = rn.hweui().expect("Could not read hweui");
+        writeln!(debug, "  HW-EUI: {}", hweui).unwrap();
+        let model = rn.model().expect("Could not read model");
+        writeln!(debug, "  Model: {:?}", model).unwrap();
+        let vdd = rn.vdd().expect("Could not read vdd");
+        writeln!(debug, "  VDD voltage: {} mV", vdd).unwrap();
 
         // Spawn tasks
         ctx.spawn.toggle_led().unwrap();
@@ -195,6 +237,7 @@ const APP: () = {
             sht,
             one_wire,
             ds18b20,
+			rn,
             delay,
         }
     }
