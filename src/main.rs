@@ -6,7 +6,7 @@ use core::fmt::Write;
 
 use one_wire_bus::OneWire;
 use panic_persist as _;
-use rn2xx3::{rn2483_868, Driver as Rn2xx3, Freq868};
+use rn2xx3::{rn2483_868, Driver as Rn2xx3, Freq868, JoinMode};
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0xx_hal::gpio::{
@@ -225,6 +225,20 @@ const APP: () = {
         let vdd = rn.vdd().expect("Could not read vdd");
         writeln!(debug, "  VDD voltage: {} mV", vdd).unwrap();
 
+        // Set keys
+        writeln!(debug, "RN2483: Setting keys...").unwrap();
+        rn.set_app_eui_hex(env!("GFROERLI_APP_EUI"))
+            .expect("Could not set app EUI");
+        rn.set_app_key_hex(env!("GFROERLI_APP_KEY"))
+            .expect("Could not set app key");
+
+        // Join
+        writeln!(debug, "RN2483: Joining via OTAA...").unwrap();
+        match rn.join(JoinMode::Otaa) {
+            Ok(()) => writeln!(debug, "RN2483: Join successful").unwrap(),
+            Err(e) => writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap(),
+        }
+
         // Spawn tasks
         ctx.spawn.toggle_led().unwrap();
         ctx.spawn.start_measurements().unwrap();
@@ -237,7 +251,7 @@ const APP: () = {
             sht,
             one_wire,
             ds18b20,
-			rn,
+            rn,
             delay,
         }
     }
