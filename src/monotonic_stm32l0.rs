@@ -30,6 +30,9 @@ use stm32l0xx_hal::pac;
 /// This uses TIM6 internally.
 pub struct Tim6Monotonic;
 
+// Note: Adjusting CORE_CLOCK or PRESCALER may cause the calculations
+// in `U16Ext` to overflow their data types. Check them to ensure that
+// it can't happen.
 const CORE_CLOCK: u32 = 16_000_000;
 const PRESCALER: u32 = 2048;
 const HZ: u32 = CORE_CLOCK / PRESCALER;
@@ -300,7 +303,7 @@ impl U16Ext for u16 {
     fn secs(self) -> Duration {
         debug_assert!(self <= 8, "Cannot represent values >8s in a `Duration`");
         Duration {
-            inner: (HZ as u64 * self as u64) as u16,
+            inner: HZ as u16 * self,
         }
     }
 
@@ -316,7 +319,7 @@ impl U16Ext for u16 {
 
     fn micros(self) -> Duration {
         Duration {
-            inner: (HZ as u64 * self as u64 / 1_000_000) as u16,
+            inner: (HZ as u32 * self as u32 / 1_000_000) as u16,
         }
     }
 }
