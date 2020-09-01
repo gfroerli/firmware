@@ -310,7 +310,7 @@ const APP: () = {
 
         // Schedule reading of the measurement results
         ctx.schedule
-            .read_measurement_results(ctx.scheduled + 500.millis())
+            .read_measurement_results(Instant::now() + 500.millis())
             .unwrap();
     }
 
