@@ -37,6 +37,9 @@ use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const APP_EUI: &str = env!("GFROERLI_APP_EUI");
+const APP_KEY: &str = env!("GFROERLI_APP_KEY");
+
 enum LedDisableTarget {
     Red,
     All,
@@ -224,7 +227,7 @@ const APP: () = {
         // Show device info
         writeln!(debug, "RN2483: Device info").unwrap();
         let hweui = rn.hweui().expect("Could not read hweui");
-        writeln!(debug, "  HW-EUI: {}", hweui).unwrap();
+        writeln!(debug, "  Hardware EUI: {}", hweui).unwrap();
         let model = rn.model().expect("Could not read model");
         writeln!(debug, "  Model: {:?}", model).unwrap();
         let vdd = rn.vdd().expect("Could not read vdd");
@@ -232,10 +235,9 @@ const APP: () = {
 
         // Set keys
         writeln!(debug, "RN2483: Setting keys...").unwrap();
-        rn.set_app_eui_hex(env!("GFROERLI_APP_EUI"))
-            .expect("Could not set app EUI");
-        rn.set_app_key_hex(env!("GFROERLI_APP_KEY"))
-            .expect("Could not set app key");
+        writeln!(debug, "  App EUI: {}", APP_EUI).unwrap();
+        rn.set_app_eui_hex(APP_EUI).expect("Could not set app EUI");
+        rn.set_app_key_hex(APP_KEY).expect("Could not set app key");
 
         // Spawn tasks
         ctx.spawn.join().unwrap();
