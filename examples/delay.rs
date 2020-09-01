@@ -16,13 +16,13 @@ use gfroerli_firmware::delay;
 const APP: () = {
     #[init]
     fn init(ctx: init::Context) {
-        let dp: pac::Peripherals = ctx.device;
+        let mut dp: pac::Peripherals = ctx.device;
+
+        // Delay provider
+        let mut delay = delay::Tim7Delay::new(dp.TIM7, &mut dp.RCC);
 
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
-
-        // Delay provider
-        let mut delay = delay::Tim7Delay::new(dp.TIM7);
 
         // Toggle serial TX pin with delay
         let gpiob = dp.GPIOB.split(&mut rcc);

@@ -51,7 +51,10 @@ const APP: () = {
     #[init]
     fn init(ctx: init::Context) -> init::LateResources {
         let _p: cortex_m::Peripherals = ctx.core;
-        let dp: pac::Peripherals = ctx.device;
+        let mut dp: pac::Peripherals = ctx.device;
+
+        // Init delay timer
+        let mut delay = delay::Tim7Delay::new(dp.TIM7, &mut dp.RCC);
 
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
@@ -62,9 +65,6 @@ const APP: () = {
         //let mut rcc = dp.RCC.freeze(
         //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
         //);
-
-        // Init delay timer
-        let mut delay = delay::Tim7Delay::new(dp.TIM7);
 
         // Initialize timer to blink LEDs. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.

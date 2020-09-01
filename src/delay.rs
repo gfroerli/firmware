@@ -3,7 +3,7 @@
 //! This is done because RTIC takes ownership of SYST, and the stm32l0-hal by
 //! default also wants SYST for its Delay implementation.
 //!
-//! TODO: Move this into the HAL!
+//! TODO: Move this into the HAL?
 
 use core::cmp::max;
 
@@ -15,21 +15,13 @@ pub struct Tim7Delay {
 }
 
 impl Tim7Delay {
-    pub fn new(tim7: pac::TIM7) -> Self {
-        // Enable and reset TIM7 in RCC
-        //
-        // Correctness: Since we only modify TIM7 related registers in the RCC
-        // register block, and since we own pac::TIM7, we should be safe.
-        unsafe {
-            let rcc = &*pac::RCC::ptr();
+    pub fn new(tim7: pac::TIM7, rcc: &mut pac::RCC) -> Self {
+        // Enable TIM7 in RCC
+        rcc.apb1enr.modify(|_, w| w.tim7en().set_bit());
 
-            // Enable timer
-            rcc.apb1enr.modify(|_, w| w.tim7en().set_bit());
-
-            // Reset timer
-            rcc.apb1rstr.modify(|_, w| w.tim7rst().set_bit());
-            rcc.apb1rstr.modify(|_, w| w.tim7rst().clear_bit());
-        }
+        // Reset timer
+        rcc.apb1rstr.modify(|_, w| w.tim7rst().set_bit());
+        rcc.apb1rstr.modify(|_, w| w.tim7rst().clear_bit());
 
         // Enable one-pulse mode (counter stops counting at the next update
         // event, clearing the CEN bit)
