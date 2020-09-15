@@ -7,13 +7,13 @@
 //! This implementation assumes that the core clock is set to 16 MHz (see
 //! `CORE_CLOCK` constant). At 16 MHz, this means 62.5 ns per clock cycle.
 //!
-//! If we use a prescaler value of 2048, that means 62.5 ns * 2048 = 128 µs per
-//! timer tick. This corresponds to a frequency of 16 MHz / 2048 = 7.8125 kHz.
+//! If we use a prescaler value of 2000, that means 62.5 ns * 2000 = 125 µs per
+//! timer tick. This corresponds to a frequency of 16 MHz / 2000 = 8.0 kHz.
 //!
-//! Because the timer has 16 bits, it will overflow every 128 µs * 2^16 =
-//! ~8.39 seconds. Due to overflow checking, we can only safely use one
+//! Because the timer has 16 bits, it will overflow every 125 µs * 2^16 =
+//! ~8.19 seconds. Due to overflow checking, we can only safely use one
 //! half of the available timer range, meaning that we can safely schedule
-//! tasks ~4.19 seconds into the future, with a resolution of 128 µs.
+//! tasks 4.096 seconds into the future, with a resolution of 125 µs.
 
 use core::u32;
 use core::{
@@ -34,7 +34,7 @@ pub struct Tim6Monotonic;
 // in `U16Ext` to overflow their data types. Check them to ensure that
 // it can't happen.
 const CORE_CLOCK: u32 = 16_000_000;
-const PRESCALER: u32 = 2048;
+const PRESCALER: u32 = 2000;
 const HZ: u32 = CORE_CLOCK / PRESCALER;
 
 impl Tim6Monotonic {
@@ -286,7 +286,7 @@ impl ops::Sub for Duration {
 
 /// Adds the `secs`, `millis` and `micros` methods to the `u16` type.
 ///
-/// WARNING: You cannot represent values higher than 8388 milliseconds without
+/// WARNING: You cannot represent values higher than 8192 milliseconds without
 /// overflow!
 pub trait U16Ext {
     /// Converts the `u16` value as seconds into ticks
@@ -309,8 +309,8 @@ impl U16Ext for u16 {
 
     fn millis(self) -> Duration {
         debug_assert!(
-            self <= 8388,
-            "Cannot represent values >8388 in a `Duration`"
+            self <= 8192,
+            "Cannot represent values >8192 in a `Duration`"
         );
         Duration {
             inner: (HZ as u64 * self as u64 / 1_000) as u16,
