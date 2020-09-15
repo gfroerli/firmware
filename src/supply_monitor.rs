@@ -25,11 +25,11 @@ impl SupplyMonitor {
         }
     }
 
-    pub fn disable(&mut self) {
+    fn disable(&mut self) {
         self.enable_pin.set_low().unwrap();
     }
 
-    pub fn enable(&mut self) {
+    fn enable(&mut self) {
         self.enable_pin.set_high().unwrap();
     }
 
