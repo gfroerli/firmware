@@ -120,7 +120,7 @@ const APP: () = {
         let adc_enable_pin = gpioa.pa5.into_push_pull_output().downgrade();
         let mut supply_monitor = SupplyMonitor::new(a1, adc, adc_enable_pin);
         let val = supply_monitor.read_supply();
-        writeln!(debug, "Supply: {}", val).unwrap();
+        writeln!(debug, "Supply: {:?}", val).unwrap();
 
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire =

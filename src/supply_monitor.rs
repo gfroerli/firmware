@@ -33,16 +33,16 @@ impl SupplyMonitor {
         self.enable_pin.set_high().unwrap();
     }
 
-    pub fn read_supply_raw(&mut self) -> u16 {
+    pub fn read_supply_raw(&mut self) -> Option<u16> {
         self.enable();
-        let val: u16 = self.adc.read(&mut self.adc_pin).unwrap();
+        let val: Option<u16> = self.adc.read(&mut self.adc_pin).ok();
         self.disable();
         val
     }
 
-    pub fn read_supply(&mut self) -> f32 {
-        let val = self.read_supply_raw();
-        Self::convert_input(val)
+    pub fn read_supply(&mut self) -> Option<f32> {
+        let val = self.read_supply_raw()?;
+        Some(Self::convert_input(val))
     }
 
     pub fn convert_input(input: u16) -> f32 {
