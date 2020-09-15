@@ -46,6 +46,10 @@ impl SupplyMonitor {
     }
 
     pub fn convert_input(input: u16) -> f32 {
-        (input as f32) / 4095.0 * 3.3 / 9.31 * (9.31 + 6.04)
+        const SUPPLY_VOLTAGE: f32 = 3.3;
+        const ADC_MAX: f32 = 4095.0;
+        const R_1: f32 = 9.31;
+        const R_2: f32 = 6.04;
+        (input as f32) / ADC_MAX * SUPPLY_VOLTAGE / R_1 * (R_1 + R_2)
     }
 }
