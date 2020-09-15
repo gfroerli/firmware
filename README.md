@@ -1,5 +1,13 @@
 # Gfrör.li v2 Firmware
 
+## Timers
+
+We use the following timers:
+
+- `SYST`: Used by RTIC for the scheduling system
+- `TIM6`: Used as a `Monotonic` implementation
+- `TIM7`: Used as a blocking delay provider for the device drivers
+
 
 ## Build
 
