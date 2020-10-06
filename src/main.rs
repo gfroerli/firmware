@@ -6,7 +6,7 @@ use core::fmt::Write;
 
 use one_wire_bus::OneWire;
 use panic_persist as _;
-use rn2xx3::{rn2483_868, Driver as Rn2xx3, Freq868, JoinMode};
+use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0xx_hal::gpio::{
@@ -238,9 +238,14 @@ const APP: () = {
         writeln!(debug, "RN2483: Setting keys...").unwrap();
         writeln!(debug, "  Dev addr: {}", DEV_ADDR).unwrap();
 
-        rn.set_dev_addr_hex(DEV_ADDR).expect("Could not set dev addr");
-        rn.set_network_session_key_hex(NETWORK_SESSION_KEY).expect("Could not set network session key");
-        rn.set_app_session_key_hex(APP_SESSION_KEY).expect("Could not set app session key");
+        rn.set_dev_addr_hex(DEV_ADDR)
+            .expect("Could not set dev addr");
+        rn.set_network_session_key_hex(NETWORK_SESSION_KEY)
+            .expect("Could not set network session key");
+        rn.set_app_session_key_hex(APP_SESSION_KEY)
+            .expect("Could not set app session key");
+        rn.set_data_rate(DataRateEuCn::Sf8Bw125)
+            .expect("Could not set data rate");
 
         // Spawn tasks
         ctx.spawn.join().unwrap();
@@ -318,8 +323,10 @@ const APP: () = {
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
-    #[task(resources = [debug, delay, sht, one_wire, ds18b20], schedule = [start_measurements])]
+    #[task(resources = [debug, delay, sht, one_wire, ds18b20, rn], schedule = [start_measurements])]
     fn read_measurement_results(mut ctx: read_measurement_results::Context) {
+        static mut COUNTER: usize = 0;
+
         // Fetch measurement results
         let measurement = ctx
             .resources
@@ -353,6 +360,26 @@ const APP: () = {
             )
             .unwrap();
         }
+
+        // For testing, transmit every 30s
+        if *COUNTER % 30 == 0 {
+            let fport = 123;
+            writeln!(ctx.resources.debug, "Transmitting measurement...").unwrap();
+            let tx_result = ctx.resources.rn.transmit_slice(
+                ConfirmationMode::Unconfirmed,
+                fport,
+                &[0x23, 0x42],
+            );
+            if let Err(e) = tx_result {
+                writeln!(
+                    ctx.resources.debug,
+                    "Error: Transmitting LoRaWAN package failed: {:?}",
+                    e
+                )
+                .unwrap();
+            }
+        }
+        *COUNTER += 1;
 
         // Re-schedule a measurement
         ctx.schedule
