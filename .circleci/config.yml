@@ -12,8 +12,13 @@ jobs:
     docker:
       - image: rust:1.50.0
     environment:
+      # OTAA
       GFROERLI_APP_EUI: "0011223344556677"
       GFROERLI_APP_KEY: "0011223344556677889900aabbccddee"
+      # ABP
+      GFROERLI_DEV_ADDR: "00000001"
+      GFROERLI_NETWORK_SESSION_KEY: "11111111111111111111111111111111"
+      GFROERLI_APP_SESSION_KEY: "22222222222222222222222222222222"
       # https://github.com/rust-lang/cargo/issues/2078
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:

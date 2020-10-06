@@ -37,8 +37,9 @@ use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const APP_EUI: &str = env!("GFROERLI_APP_EUI");
-const APP_KEY: &str = env!("GFROERLI_APP_KEY");
+const DEV_ADDR: &str = env!("GFROERLI_DEV_ADDR");
+const NETWORK_SESSION_KEY: &str = env!("GFROERLI_NETWORK_SESSION_KEY");
+const APP_SESSION_KEY: &str = env!("GFROERLI_APP_SESSION_KEY");
 
 enum LedDisableTarget {
     Red,
@@ -235,9 +236,11 @@ const APP: () = {
 
         // Set keys
         writeln!(debug, "RN2483: Setting keys...").unwrap();
-        writeln!(debug, "  App EUI: {}", APP_EUI).unwrap();
-        rn.set_app_eui_hex(APP_EUI).expect("Could not set app EUI");
-        rn.set_app_key_hex(APP_KEY).expect("Could not set app key");
+        writeln!(debug, "  Dev addr: {}", DEV_ADDR).unwrap();
+
+        rn.set_dev_addr_hex(DEV_ADDR).expect("Could not set dev addr");
+        rn.set_network_session_key_hex(NETWORK_SESSION_KEY).expect("Could not set network session key");
+        rn.set_app_session_key_hex(APP_SESSION_KEY).expect("Could not set app session key");
 
         // Spawn tasks
         ctx.spawn.join().unwrap();
@@ -256,7 +259,7 @@ const APP: () = {
         }
     }
 
-    /// Join LoRaWAN network via OTAA.
+    /// Join LoRaWAN network via ABP.
     #[task(resources = [debug, status_leds, rn], schedule = [disable_led], priority = 1)]
     fn join(ctx: join::Context) {
         let debug = ctx.resources.debug;
@@ -265,8 +268,8 @@ const APP: () = {
 
         status_leds.lock(|leds: &mut StatusLeds| leds.enable_yellow());
         for i in 1..=3 {
-            writeln!(debug, "RN2483: Joining via OTAA (attempt {})…", i).unwrap();
-            match rn.join(JoinMode::Otaa) {
+            writeln!(debug, "RN2483: Joining via ABP (attempt {})…", i).unwrap();
+            match rn.join(JoinMode::Abp) {
                 Ok(()) => {
                     writeln!(debug, "RN2483: Join successful").unwrap();
                     status_leds.lock(|leds: &mut StatusLeds| leds.enable_green());
