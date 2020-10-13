@@ -62,3 +62,19 @@ impl SupplyMonitor {
         (input as f32) / ADC_MAX * SUPPLY_VOLTAGE / R_1 * (R_1 + R_2)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_input() {
+        let inputs = [0, 2047, 4095];
+        let results = [0.0, 2.72, 5.44];
+        for (input, expected) in inputs.iter().zip(&results) {
+            let result = SupplyMonitor::convert_input(*input);
+            println!("{} -> {}, should {}", input, result, expected);
+            assert!((result - *expected).abs() < 0.01);
+        }
+    }
+}

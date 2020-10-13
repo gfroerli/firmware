@@ -1,5 +1,6 @@
 #![no_main]
 #![no_std]
+#![cfg(target_arch = "arm")]
 
 extern crate panic_halt;
 
