@@ -13,6 +13,27 @@ pub struct MeasurementMessage {
     pub v_supply: Option<U12>,
 }
 
+trait MeasurementValue {
+    const SIZE: usize;
+    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
+}
+
+impl MeasurementValue for U12 {
+    const SIZE: usize = 12;
+    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
+        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
+        *bit_index += Self::SIZE;
+    }
+}
+
+impl MeasurementValue for u16 {
+    const SIZE: usize = 16;
+    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
+        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self);
+        *bit_index += Self::SIZE;
+    }
+}
+
 bitfield! {
     pub struct EncodedMeasurement(MSB0 [u8]);
 }
@@ -26,23 +47,19 @@ impl MeasurementMessage {
         let mut bit_index = 8;
         if let Some(t_water) = self.t_water {
             data_mask.set_bit(0, true);
-            output.set_bit_range(bit_index + 12 - 1, bit_index, t_water.0);
-            bit_index += 12;
+            t_water.encode(output, &mut bit_index);
         }
         if let Some(t_inside) = self.t_inside {
             data_mask.set_bit(1, true);
-            output.set_bit_range(bit_index + 16 - 1, bit_index, t_inside);
-            bit_index += 16;
+            t_inside.encode(output, &mut bit_index);
         }
         if let Some(rh_inside) = self.rh_inside {
             data_mask.set_bit(2, true);
-            output.set_bit_range(bit_index + 16 - 1, bit_index, rh_inside);
-            bit_index += 16;
+            rh_inside.encode(output, &mut bit_index);
         }
         if let Some(v_supply) = self.v_supply {
             data_mask.set_bit(3, true);
-            output.set_bit_range(bit_index + 12 - 1, bit_index, v_supply.0);
-            bit_index += 12;
+            v_supply.encode(output, &mut bit_index);
         }
 
         output.0[0] = data_mask;
