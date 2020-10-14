@@ -41,29 +41,29 @@ bitfield! {
 /// The encoder encodes `MeasurementValue`s into an `EncodedMeasurement` output buffer.
 ///
 /// It keeps track of the offset and calculates the number of bytes written when finishing.
-struct Encoder {
+struct Encoder<'a> {
     bit_index: usize,
     data_mask: u8,
+    output: &'a mut EncodedMeasurement<[u8; MAX_MSG_LEN]>,
 }
 
-impl Encoder {
-    fn new() -> Self {
-        Self { bit_index: 8, data_mask: 0 }
+impl<'a> Encoder<'a> {
+    fn new(output: &'a mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> Self {
+        Self {
+            bit_index: 8,
+            data_mask: 0,
+            output,
+        }
     }
 
-    fn encode(
-        &mut self,
-        mask_bit: usize,
-        value: &impl MeasurementValue,
-        output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>,
-    ) {
-        value.encode(output, &mut self.bit_index);
+    fn encode(&mut self, mask_bit: usize, value: &impl MeasurementValue) {
+        value.encode(self.output, &mut self.bit_index);
         self.data_mask.set_bit(mask_bit, true);
     }
 
     /// Finish encoding, return the number of bytes encoded.
-    fn finish(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> usize {
-        output.0[0] = self.data_mask;
+    fn finish(self) -> usize {
+        self.output.0[0] = self.data_mask;
         (self.bit_index + 4) / 8
     }
 }
@@ -73,20 +73,20 @@ impl MeasurementMessage {
     ///
     /// Returns the number of bytes which should be sent
     pub fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> usize {
-        let mut encoder = Encoder::new();
+        let mut encoder = Encoder::new(output);
         if let Some(t_water) = self.t_water {
-            encoder.encode(0, &t_water, output);
+            encoder.encode(0, &t_water);
         }
         if let Some(t_inside) = self.t_inside {
-            encoder.encode(1, &t_inside, output);
+            encoder.encode(1, &t_inside);
         }
         if let Some(rh_inside) = self.rh_inside {
-            encoder.encode(2, &rh_inside, output);
+            encoder.encode(2, &rh_inside);
         }
         if let Some(v_supply) = self.v_supply {
-            encoder.encode(3, &v_supply, output);
+            encoder.encode(3, &v_supply);
         }
-        encoder.finish(output)
+        encoder.finish()
     }
 }
 
