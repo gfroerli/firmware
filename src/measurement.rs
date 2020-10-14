@@ -15,12 +15,12 @@ pub struct MeasurementMessage {
 
 trait MeasurementValue {
     const SIZE: usize;
-    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
+    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
 }
 
 impl MeasurementValue for U12 {
     const SIZE: usize = 12;
-    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
+    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
         *bit_index += Self::SIZE;
     }
@@ -28,8 +28,8 @@ impl MeasurementValue for U12 {
 
 impl MeasurementValue for u16 {
     const SIZE: usize = 16;
-    fn encode(self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
-        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self);
+    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
+        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, *self);
         *bit_index += Self::SIZE;
     }
 }
@@ -38,32 +38,58 @@ bitfield! {
     pub struct EncodedMeasurement(MSB0 [u8]);
 }
 
+/// The encoder encodes `MeasurementValue`s into an `EncodedMeasurement` output buffer.
+///
+/// It keeps track of the offset and calculates the number of bytes written when finishing.
+struct Encoder {
+    bit_index: usize,
+}
+
+impl Encoder {
+    fn new() -> Self {
+        Self { bit_index: 8 }
+    }
+
+    fn encode(
+        &mut self,
+        output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>,
+        value: &impl MeasurementValue,
+    ) {
+        value.encode(output, &mut self.bit_index);
+    }
+
+    /// Finish encoding, return the number of bytes encoded.
+    fn finish(self) -> usize {
+        (self.bit_index + 4) / 8
+    }
+}
+
 impl MeasurementMessage {
     /// Encode the measurement into the given buffer.
     ///
     /// Returns the number of bytes which should be sent
     pub fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> usize {
         let mut data_mask = 0u8;
-        let mut bit_index = 8;
+        let mut encoder = Encoder::new();
         if let Some(t_water) = self.t_water {
             data_mask.set_bit(0, true);
-            t_water.encode(output, &mut bit_index);
+            encoder.encode(output, &t_water);
         }
         if let Some(t_inside) = self.t_inside {
             data_mask.set_bit(1, true);
-            t_inside.encode(output, &mut bit_index);
+            encoder.encode(output, &t_inside);
         }
         if let Some(rh_inside) = self.rh_inside {
             data_mask.set_bit(2, true);
-            rh_inside.encode(output, &mut bit_index);
+            encoder.encode(output, &rh_inside);
         }
         if let Some(v_supply) = self.v_supply {
             data_mask.set_bit(3, true);
-            v_supply.encode(output, &mut bit_index);
+            encoder.encode(output, &v_supply);
         }
 
         output.0[0] = data_mask;
-        (bit_index + 4) / 8
+        encoder.finish()
     }
 }
 
