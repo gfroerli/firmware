@@ -80,6 +80,12 @@ impl Ds18b20 {
         one_wire_bus::crc::check_crc8(&scratchpad)?;
 
         // 12-bit raw temperature data is in bytes 0 and 1
+        if cfg!(feature = "dev") {
+            assert!(
+                (scratchpad[1] & 0xf0) == 0,
+                "Raw data contains more than 12 data bits"
+            );
+        }
         Ok(u16::from_le_bytes([scratchpad[0], scratchpad[1]]))
     }
 }

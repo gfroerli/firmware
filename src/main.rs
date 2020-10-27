@@ -223,14 +223,26 @@ const APP: () = {
             .expect("DS18B20: Failed to read measurement");
 
         // Print results
-        writeln!(
-            ctx.resources.debug,
-            "DS18B20: 0x{:04x} | SHTC3: {:.2} °C, {:.2} %RH",
-            ds18b20_measurement,
-            measurement.temperature.as_degrees_celsius(),
-            measurement.humidity.as_percent()
-        )
-        .unwrap();
+        if cfg!(feature = "dev") {
+            writeln!(
+                ctx.resources.debug,
+                "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
+                (ds18b20_measurement as f32) / 16.0,
+                ds18b20_measurement,
+                measurement.temperature.as_degrees_celsius(),
+                measurement.humidity.as_percent()
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                ctx.resources.debug,
+                "DS18B20: 0x{:04x} | SHTC3: {:.2}°C, {:.2}%RH",
+                ds18b20_measurement,
+                measurement.temperature.as_degrees_celsius(),
+                measurement.humidity.as_percent()
+            )
+            .unwrap();
+        }
 
         // Re-schedule a measurement
         ctx.schedule

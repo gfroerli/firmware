@@ -37,3 +37,7 @@ shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 panic-halt = "0.2" # Use ITM or panic-persist in the future
+
+[features]
+# Enable some more verbose logging and debug assertions
+dev = []
