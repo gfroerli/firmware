@@ -1,4 +1,5 @@
-use bitfield::{bitfield, Bit, BitRange};
+use bitfield::{Bit};
+use bitvec::prelude::*;
 
 #[derive(Copy, Clone, Default)]
 pub struct U12(u16);
@@ -21,27 +22,32 @@ pub struct MeasurementMessage {
 
 trait MeasurementValue {
     const SIZE: usize;
-    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
+    fn encode(&self, output: &mut EncodedMeasurement, bit_index: &mut usize);
 }
 
 impl MeasurementValue for U12 {
     const SIZE: usize = 12;
-    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
-        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
+    fn encode(&self, output: &mut EncodedMeasurement, bit_index: &mut usize) {
+        output.0[*bit_index..*bit_index + Self::SIZE].store_be(self.0);
         *bit_index += Self::SIZE;
     }
 }
 
 impl MeasurementValue for u16 {
     const SIZE: usize = 16;
-    fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
-        output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, *self);
+    fn encode(&self, output: &mut EncodedMeasurement, bit_index: &mut usize) {
+        output.0[*bit_index..*bit_index + Self::SIZE].store_be(*self);
         *bit_index += Self::SIZE;
     }
 }
 
-bitfield! {
-    pub struct EncodedMeasurement(MSB0 [u8]);
+// need to use `8` here, MAX_MSG_LEN doesn't compile
+pub struct EncodedMeasurement(bitarr!(for 64, in Msb0, u8));
+
+impl EncodedMeasurement {
+    pub fn new() -> Self {
+        EncodedMeasurement(bitarr![Msb0, u8; 0; MAX_MSG_LEN*8])
+    }
 }
 
 /// The encoder encodes `MeasurementValue`s into an `EncodedMeasurement` output buffer.
@@ -50,11 +56,11 @@ bitfield! {
 struct Encoder<'a> {
     bit_index: usize,
     data_mask: u8,
-    output: &'a mut EncodedMeasurement<[u8; MAX_MSG_LEN]>,
+    output: &'a mut EncodedMeasurement,
 }
 
 impl<'a> Encoder<'a> {
-    fn new(output: &'a mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> Self {
+    fn new(output: &'a mut EncodedMeasurement) -> Self {
         Self {
             bit_index: 8,
             data_mask: 0,
@@ -69,7 +75,7 @@ impl<'a> Encoder<'a> {
 
     /// Finish encoding, return the number of bytes encoded.
     fn finish(self) -> usize {
-        self.output.0[0] = self.data_mask;
+        self.output.0.as_mut_slice()[0] = self.data_mask;
         (self.bit_index + 4) / 8
     }
 }
@@ -78,7 +84,7 @@ impl MeasurementMessage {
     /// Encode the measurement into the given buffer.
     ///
     /// Returns the number of bytes which should be sent
-    pub fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>) -> usize {
+    pub fn encode(&self, output: &mut EncodedMeasurement) -> usize {
         let mut encoder = Encoder::new(output);
         if let Some(t_water) = self.t_water {
             encoder.encode(0, &t_water);
@@ -105,11 +111,11 @@ mod tests {
         let input = MeasurementMessage::default();
         let expeced_result = [0];
 
-        let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+        let mut output = EncodedMeasurement::new();
         let length = input.encode(&mut output) as usize;
 
         assert_eq!(length, 1);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0.as_slice()[0..length], expeced_result);
     }
 
     #[test]
@@ -119,16 +125,16 @@ mod tests {
             ..MeasurementMessage::default()
         };
         let expeced_result = [1, 0b0000_0101, 0b1010_0000];
-        let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+        let mut output = EncodedMeasurement::new();
 
         let length = input.encode(&mut output) as usize;
         println!("{:012b}", input.t_water.unwrap().0);
-        for b in &output.0[1..length] {
+        for b in &output.0.as_slice()[1..length] {
             print!("{:08b} ", b);
         }
         println!();
         assert_eq!(length, 3);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0.as_slice()[0..length], expeced_result);
     }
 
     #[test]
@@ -149,15 +155,15 @@ mod tests {
             0b1010_1111,
             0b1010_0101,
         ];
-        let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+        let mut output = EncodedMeasurement::new();
 
         let length = input.encode(&mut output) as usize;
         println!("{:012b}", input.t_water.unwrap().0);
-        for b in &output.0[1..length] {
+        for b in &output.0.as_slice()[1..length] {
             print!("{:08b} ", b);
         }
         println!();
         assert_eq!(length, MAX_MSG_LEN);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0.as_slice()[0..length], expeced_result);
     }
 }
