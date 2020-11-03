@@ -3,6 +3,12 @@ use bitfield::{bitfield, Bit, BitRange};
 #[derive(Copy, Clone, Default)]
 pub struct U12(u16);
 
+impl U12 {
+    pub fn new(value: u16) -> Self {
+        Self(value.min(0xFFF))
+    }
+}
+
 pub const MAX_MSG_LEN: usize = 8;
 
 #[derive(Copy, Clone, Default)]
