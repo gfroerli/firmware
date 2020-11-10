@@ -45,6 +45,11 @@ To reset the target without flashing (requires `cargo-embed` 0.9+):
 
     cargo embed reset
 
+To enable more verbose debug logging (e.g. with conversion of raw temperature
+data) as well as some debug assertions, enable the `dev` features
+
+    cargo embed flash --release --features dev
+
 
 ## License
 

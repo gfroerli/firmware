@@ -6,7 +6,6 @@ extern crate panic_halt;
 
 use core::fmt::Write;
 
-use ds18b20::Ds18b20;
 use one_wire_bus::OneWire;
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
@@ -19,7 +18,7 @@ use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
 mod delay;
-mod ds18b20_utils;
+mod ds18b20;
 mod leds;
 mod measurement;
 mod monotonic_stm32l0;
@@ -27,6 +26,7 @@ mod supply_monitor;
 mod version;
 
 use delay::Tim7Delay;
+use ds18b20::Ds18b20;
 use leds::{LedState, StatusLeds};
 use monotonic_stm32l0::{Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
@@ -125,10 +125,9 @@ const APP: () = {
         writeln!(debug, "Supply: {:?}", val).unwrap();
 
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
-        let mut one_wire =
-            ds18b20_utils::create_and_scan_one_wire(&mut delay, &mut debug, one_wire_pin);
-        let ds18b20 = ds18b20_utils::get_ds18b20_sensor(&mut delay, &mut one_wire)
-            .expect("Could not find ds18b20 sensor");
+        let mut one_wire = OneWire::new(one_wire_pin).unwrap();
+        let ds18b20 =
+            Ds18b20::find(&mut one_wire, &mut delay).expect("Could not find DS18B20 sensor");
 
         // Initialize LEDs
         let mut status_leds = StatusLeds::new(
@@ -200,7 +199,7 @@ const APP: () = {
             .expect("SHTCx: Failed to start measurement");
         ctx.resources
             .ds18b20
-            .start_temp_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
+            .start_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
             .expect("DS18B20: Failed to start measurement");
 
         // Schedule reading of the measurement results
@@ -221,19 +220,30 @@ const APP: () = {
         let ds18b20_measurement = ctx
             .resources
             .ds18b20
-            .read_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+            .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
             .expect("DS18B20: Failed to read measurement");
 
         // Print results
-        writeln!(
-            ctx.resources.debug,
-            "{:.2} °C ({:?}), {:.2} °C, {:.2} %RH",
-            ds18b20_measurement.temperature,
-            ds18b20_measurement.resolution,
-            measurement.temperature.as_degrees_celsius(),
-            measurement.humidity.as_percent()
-        )
-        .unwrap();
+        if cfg!(feature = "dev") {
+            writeln!(
+                ctx.resources.debug,
+                "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
+                (ds18b20_measurement as f32) / 16.0,
+                ds18b20_measurement,
+                measurement.temperature.as_degrees_celsius(),
+                measurement.humidity.as_percent()
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                ctx.resources.debug,
+                "DS18B20: 0x{:04x} | SHTC3: {:.2}°C, {:.2}%RH",
+                ds18b20_measurement,
+                measurement.temperature.as_degrees_celsius(),
+                measurement.humidity.as_percent()
+            )
+            .unwrap();
+        }
 
         // Re-schedule a measurement
         ctx.schedule

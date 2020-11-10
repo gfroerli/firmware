@@ -29,7 +29,6 @@ overflow-checks = false
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
 cortex-m-rtic = "0.5"
-ds18b20 = "0.1.0"
 embedded-hal = { version = "0.2.2", features = ["unproven"] }
 one-wire-bus = "0.1.1"
 stm32l0 = "0.10.0"
@@ -39,3 +38,7 @@ bitfield = "0.13"
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 panic-halt = "0.2" # Use ITM or panic-persist in the future
+
+[features]
+# Enable some more verbose logging and debug assertions
+dev = []
