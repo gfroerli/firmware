@@ -21,6 +21,7 @@ use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 mod delay;
 mod ds18b20_utils;
 mod leds;
+mod measurement;
 mod monotonic_stm32l0;
 mod supply_monitor;
 mod version;
