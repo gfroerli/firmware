@@ -31,6 +31,7 @@ use config::Config;
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
 use leds::StatusLeds;
+use measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
 use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
@@ -364,11 +365,23 @@ const APP: () = {
         // For testing, transmit every 30s
         if *COUNTER % 30 == 0 {
             let fport = 123;
+
+            // Encode measurement
+            let message = MeasurementMessage {
+                t_water: Some(U12::new(ds18b20_measurement)),
+                t_inside: Some(0b1100_0011_1010_0101),
+                rh_inside: Some(0b0011_1100_0101_1010),
+                v_supply: Some(U12::new(0b1111_1010_0101)),
+            };
+            let mut buf = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+            let length = message.encode(&mut buf);
+
+            // Transmit
             writeln!(ctx.resources.debug, "Transmitting measurement...").unwrap();
             let tx_result = ctx.resources.rn.transmit_slice(
                 ConfirmationMode::Unconfirmed,
                 fport,
-                &[0x23, 0x42],
+                &buf.0[0..length],
             );
             if let Err(e) = tx_result {
                 writeln!(
