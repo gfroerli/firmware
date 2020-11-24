@@ -329,10 +329,10 @@ const APP: () = {
         static mut COUNTER: usize = 0;
 
         // Fetch measurement results
-        let measurement = ctx
+        let shtc3_measurement = ctx
             .resources
             .sht
-            .get_measurement_result()
+            .get_raw_measurement_result()
             .expect("SHTCx: Failed to read measurement");
         let ds18b20_measurement = ctx
             .resources
@@ -342,22 +342,21 @@ const APP: () = {
 
         // Print results
         if cfg!(feature = "dev") {
+            use shtcx::{Humidity, Temperature};
             writeln!(
                 ctx.resources.debug,
                 "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
                 (ds18b20_measurement as f32) / 16.0,
                 ds18b20_measurement,
-                measurement.temperature.as_degrees_celsius(),
-                measurement.humidity.as_percent()
+                Temperature::from_raw(shtc3_measurement.temperature).as_degrees_celsius(),
+                Humidity::from_raw(shtc3_measurement.humidity).as_percent(),
             )
             .unwrap();
         } else {
             writeln!(
                 ctx.resources.debug,
-                "DS18B20: 0x{:04x} | SHTC3: {:.2}°C, {:.2}%RH",
-                ds18b20_measurement,
-                measurement.temperature.as_degrees_celsius(),
-                measurement.humidity.as_percent()
+                "DS18B20: 0x{:04x} | SHTC3: temp_raw={}, humi_raw={}",
+                ds18b20_measurement, shtc3_measurement.temperature, shtc3_measurement.humidity
             )
             .unwrap();
         }
@@ -369,8 +368,8 @@ const APP: () = {
             // Encode measurement
             let message = MeasurementMessage {
                 t_water: Some(U12::new(ds18b20_measurement)),
-                t_inside: Some(0b1100_0011_1010_0101),
-                rh_inside: Some(0b0011_1100_0101_1010),
+                t_inside: Some(shtc3_measurement.temperature),
+                rh_inside: Some(shtc3_measurement.humidity),
                 v_supply: Some(U12::new(0b1111_1010_0101)),
             };
             let mut buf = EncodedMeasurement([0u8; MAX_MSG_LEN]);
