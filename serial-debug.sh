@@ -1,3 +1,3 @@
 #!/bin/sh
 set -eu
-miniterm.py --raw --echo /dev/ttyUSB0 57600
+python3 -m serial.tools.miniterm --raw --echo /dev/ttyUSB0 57600
