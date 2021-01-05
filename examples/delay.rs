@@ -4,8 +4,7 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
-
+use panic_persist as _;
 use rtic::app;
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, pac};
