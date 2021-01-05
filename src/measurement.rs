@@ -1,4 +1,8 @@
 use bitfield::{bitfield, Bit, BitRange};
+use core::fmt;
+use shtcx::{Temperature, Humidity};
+
+use crate::supply_monitor::SupplyMonitor;
 
 #[derive(Copy, Clone, Default)]
 pub struct U12(u16);
@@ -71,6 +75,40 @@ impl<'a> Encoder<'a> {
     fn finish(self) -> usize {
         self.output.0[0] = self.data_mask;
         (self.bit_index + 4) / 8
+    }
+}
+
+impl fmt::Display for MeasurementMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(t_w) = self.t_water {
+            write!(f, "T_water: 0x{:04x}, ", t_w.0)?;
+        }
+        if let Some(t_i) = self.t_inside {
+            write!(f, "T_inside: 0x{:04x}, ", t_i)?;
+        }
+        if let Some(rh_i) = self.rh_inside {
+            write!(f, "RH_inside: 0x{:04x}, ", rh_i)?;
+        }
+        if let Some(v) = self.v_supply {
+            write!(f, "V_supply: 0x{:04x}", v.0)?;
+        }
+
+        if cfg!(feature = "dev") {
+            //"DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
+            if let Some(t_w) = self.t_water {
+                write!(f, "T_water: {:.2}°C, ", t_w.0)?;
+            }
+            if let Some(t_i) = self.t_inside {
+                write!(f, "T_inside: {:.2}°C, ", Temperature::from_raw(t_i).as_degrees_celsius())?;
+            }
+            if let Some(rh_i) = self.rh_inside {
+                write!(f, "RH_inside: {:.2}%RH, ", Humidity::from_raw(rh_i).as_percent())?;
+            }
+            if let Some(v) = self.v_supply {
+                write!(f, "V_supply: {:.2}V", SupplyMonitor::convert_input(v.0))?;
+            }
+        }
+        Ok(())
     }
 }
 
