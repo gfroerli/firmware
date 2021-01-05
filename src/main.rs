@@ -43,6 +43,13 @@ enum LedDisableTarget {
     All,
 }
 
+#[derive(Debug, Copy, Clone)]
+/// Keep track which sensors should be measured
+struct MeasurementPlan {
+    measure_sht: bool,
+    measure_ds18b20: bool,
+}
+
 #[app(
     device = stm32l0::stm32l0x1,
     peripherals = true,
@@ -319,57 +326,109 @@ const APP: () = {
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
     #[task(resources = [delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
     fn start_measurements(mut ctx: start_measurements::Context) {
+        let mut measurement_plan = MeasurementPlan {
+            measure_sht: true,
+            measure_ds18b20: true,
+        };
         ctx.resources
             .sht
             .start_measurement(PowerMode::NormalMode)
-            .expect("SHTCx: Failed to start measurement");
+            .unwrap_or_else(|_| measurement_plan.measure_sht = false);
         ctx.resources
             .ds18b20
             .start_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
-            .expect("DS18B20: Failed to start measurement");
+            .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
 
         // Schedule reading of the measurement results
         ctx.schedule
-            .read_measurement_results(Instant::now() + 500.millis())
+            .read_measurement_results(Instant::now() + 500.millis(), measurement_plan)
             .unwrap();
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
     #[task(resources = [debug, delay, sht, one_wire, ds18b20, rn], schedule = [start_measurements])]
-    fn read_measurement_results(mut ctx: read_measurement_results::Context) {
+    fn read_measurement_results(
+        mut ctx: read_measurement_results::Context,
+        measurement_plan: MeasurementPlan,
+    ) {
         static mut COUNTER: usize = 0;
 
         // Fetch measurement results
-        let shtc3_measurement = ctx
-            .resources
-            .sht
-            .get_raw_measurement_result()
-            .expect("SHTCx: Failed to read measurement");
-        let ds18b20_measurement = ctx
-            .resources
-            .ds18b20
-            .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
-            .expect("DS18B20: Failed to read measurement");
+        let sht_measurement = if measurement_plan.measure_sht {
+            ctx.resources.sht.get_raw_measurement_result().ok()
+        } else {
+            None
+        };
+
+        let shtc3_temperature = sht_measurement.as_ref().map(|v| v.temperature);
+        let shtc3_humidity = sht_measurement.as_ref().map(|v| v.humidity);
+        let ds18b20_measurement = if measurement_plan.measure_ds18b20 {
+            ctx.resources
+                .ds18b20
+                .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+                .ok()
+        } else {
+            None
+        };
 
         // Print results
         if cfg!(feature = "dev") {
             use shtcx::{Humidity, Temperature};
-            writeln!(
-                ctx.resources.debug,
-                "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
-                (ds18b20_measurement as f32) / 16.0,
-                ds18b20_measurement,
-                Temperature::from_raw(shtc3_measurement.temperature).as_degrees_celsius(),
-                Humidity::from_raw(shtc3_measurement.humidity).as_percent(),
-            )
-            .unwrap();
+            match (ds18b20_measurement, sht_measurement) {
+                (Some(ds18b20), Some(sht)) => {
+                    writeln!(
+                        ctx.resources.debug,
+                        "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
+                        (ds18b20 as f32) / 16.0,
+                        ds18b20,
+                        Temperature::from_raw(sht.temperature).as_degrees_celsius(),
+                        Humidity::from_raw(sht.humidity).as_percent()
+                    )
+                    .unwrap();
+                }
+                (Some(ds18b20), None) => {
+                    writeln!(
+                        ctx.resources.debug,
+                        "DS18B20: {:.2}°C (0x{:04x})",
+                        (ds18b20 as f32) / 16.0,
+                        ds18b20
+                    )
+                    .unwrap();
+                }
+                (None, Some(sht)) => {
+                    writeln!(
+                        ctx.resources.debug,
+                        "SHTC3: {:.2}°C, {:.2}%RH",
+                        Temperature::from_raw(sht.temperature).as_degrees_celsius(),
+                        Humidity::from_raw(sht.humidity).as_percent()
+                    )
+                    .unwrap();
+                }
+                (None, None) => {}
+            }
         } else {
-            writeln!(
-                ctx.resources.debug,
-                "DS18B20: 0x{:04x} | SHTC3: temp_raw={}, humi_raw={}",
-                ds18b20_measurement, shtc3_measurement.temperature, shtc3_measurement.humidity
-            )
-            .unwrap();
+            match (ds18b20_measurement, sht_measurement) {
+                (Some(ds18b20), Some(sht)) => {
+                    writeln!(
+                        ctx.resources.debug,
+                        "DS18B20: 0x{:04x} | SHTC3: 0x{:04x}, 0x{:04x}",
+                        ds18b20, sht.temperature, sht.humidity
+                    )
+                    .unwrap();
+                }
+                (Some(ds18b20), None) => {
+                    writeln!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
+                }
+                (None, Some(sht)) => {
+                    writeln!(
+                        ctx.resources.debug,
+                        "SHTC3: 0x{:04x}, 0x{:04x}",
+                        sht.temperature, sht.humidity
+                    )
+                    .unwrap();
+                }
+                (None, None) => {}
+            }
         }
 
         // For testing, transmit every 30s
@@ -378,9 +437,9 @@ const APP: () = {
 
             // Encode measurement
             let message = MeasurementMessage {
-                t_water: Some(U12::new(ds18b20_measurement)),
-                t_inside: Some(shtc3_measurement.temperature),
-                rh_inside: Some(shtc3_measurement.humidity),
+                t_water: ds18b20_measurement.map(U12::new),
+                t_inside: shtc3_temperature,
+                rh_inside: shtc3_humidity,
                 v_supply: Some(U12::new(0b1111_1010_0101)),
             };
             let mut buf = EncodedMeasurement([0u8; MAX_MSG_LEN]);
