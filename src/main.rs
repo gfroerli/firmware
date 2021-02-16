@@ -2,11 +2,10 @@
 #![no_std]
 #![cfg(target_arch = "arm")]
 
-extern crate panic_halt;
-
 use core::fmt::Write;
 
 use one_wire_bus::OneWire;
+use panic_persist as _;
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0xx_hal::gpio::{
@@ -111,11 +110,19 @@ const APP: () = {
         // Show versions
         writeln!(
             debug,
-            "Gfrörli firmware={} hardware={}",
+            "Booting: Gfrörli firmware={} hardware={}",
             FIRMWARE_VERSION,
             hardware_version.detect(),
         )
         .unwrap();
+
+        // Check whether we just woke up after a panic
+        if let Some(msg) = panic_persist::get_panic_message_utf8() {
+            // If yes, send backtrace via serial
+            writeln!(debug, "=== 🔥 FOUND PANIC 🔥 ===").ok();
+            writeln!(debug, "{}", msg.trim_end()).ok();
+            writeln!(debug, "==== 🚒 END PANIC 🚒 ====").ok();
+        }
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);

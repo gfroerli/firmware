@@ -37,7 +37,7 @@ shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 bitfield = "0.13"
 
 [target.'cfg(target_arch = "arm")'.dependencies]
-panic-halt = "0.2" # Use ITM or panic-persist in the future
+panic-persist = { version = "0.2", features = ["utf8"] }
 
 [features]
 # Enable some more verbose logging and debug assertions
