@@ -9,13 +9,14 @@ use core::fmt::Write;
 use one_wire_bus::OneWire;
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
-use stm32l0::stm32l0x1::I2C1;
 use stm32l0xx_hal::gpio::{
     gpioa::{PA10, PA6, PA9},
     OpenDrain, Output,
 };
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
+
+type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
 
 mod delay;
 mod ds18b20;
@@ -48,7 +49,7 @@ const APP: () = {
         status_leds: StatusLeds,
 
         // SHT temperature/humidity sensor
-        sht: ShtC3<I2c<I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>>,
+        sht: ShtC3<I2C1>,
 
         // DS18B20 water temperature sensor
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
