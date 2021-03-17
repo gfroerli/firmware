@@ -17,6 +17,7 @@ use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
 type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
 
+mod config;
 mod delay;
 mod ds18b20;
 mod leds;
@@ -25,6 +26,7 @@ mod monotonic_stm32l0;
 mod supply_monitor;
 mod version;
 
+use config::Config;
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
 use leds::{LedState, StatusLeds};
@@ -124,6 +126,31 @@ const APP: () = {
             writeln!(debug, "==== 🚒 END PANIC 🚒 ====").ok();
         }
 
+        // Dump EEPROM config data
+        if cfg!(feature = "dev") {
+            writeln!(debug, "\nEEPROM contents at 0x0808_0000:").unwrap();
+            let config_data: &[u8] = unsafe {
+                core::slice::from_raw_parts(
+                    config::BASE_ADDR as *const u8,
+                    config::CONFIG_DATA_SIZE,
+                )
+            };
+            for (i, byte) in config_data.iter().enumerate() {
+                write!(debug, " {:02x}", byte).unwrap();
+                if (i + 1) % 16 == 0 {
+                    write!(debug, "\n").unwrap();
+                }
+            }
+            write!(debug, "\n\n").unwrap();
+        }
+
+        // Read config from EEPROM
+        let config = match Config::read_from_eeprom(&mut dp.FLASH) {
+            Ok(c) => c,
+            Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
+        };
+        writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);
         let a1 = gpioa.pa1.into_analog();
@@ -132,12 +159,14 @@ const APP: () = {
         let val = supply_monitor.read_supply();
         writeln!(debug, "Supply: {:?}", val).unwrap();
 
+        writeln!(debug, "Initialize one-wire DS18B20 sensor").unwrap();
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire = OneWire::new(one_wire_pin).unwrap();
         let ds18b20 =
             Ds18b20::find(&mut one_wire, &mut delay).expect("Could not find DS18B20 sensor");
 
         // Initialize LEDs
+        writeln!(debug, "Initialize LEDs").unwrap();
         let mut status_leds = StatusLeds::new(
             gpiob.pb1.into_push_pull_output().downgrade(),
             gpiob.pb0.into_push_pull_output().downgrade(),
@@ -145,6 +174,7 @@ const APP: () = {
         );
         status_leds.disable_all();
 
+        writeln!(debug, "Initialize I²C peripheral").unwrap();
         let sda = gpioa.pa10.into_open_drain_output();
         let scl = gpioa.pa9.into_open_drain_output();
         let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
