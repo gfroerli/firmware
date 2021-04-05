@@ -1,27 +1,30 @@
+#![cfg_attr(not(test), no_std)]
 //! # Device Configuration
 //!
 //! The device configuration is read from EEPROM.
 //!
 //! ## Memory Map
 //!
-//!                 0           8          16          24          32
-//!                 +-----------+-----------+-----------+-----------+
-//!     0x0808_0000 | Version   | Reserved                          |
-//!                 +-----------+-----------+-----------+-----------+
-//!     0x0808_0004 | DevAddr                                       |
-//!                 +-----------+-----------+-----------+-----------+
-//!     0x0808_0008 |                                               |
-//!     0x0808_000C | NwkSKey                                       |
-//!     0x0808_0010 |                                               |
-//!     0x0808_0014 |                                               |
-//!                 +-----------+-----------+-----------+-----------+
-//!     0x0808_0018 |                                               |
-//!     0x0808_001C | AppSKey                                       |
-//!     0x0808_0020 |                                               |
-//!     0x0808_0024 |                                               |
-//!                 +-----------+-----------+-----------+-----------+
-//!     0x0808_0028 | WakeupInterval        | ITempHumi | IVoltage  |
-//!                 +-----------+-----------+-----------+-----------+
+//! ```text
+//!             0           8          16          24          32
+//!             +-----------+-----------+-----------+-----------+
+//! 0x0808_0000 | Version   | Reserved                          |
+//!             +-----------+-----------+-----------+-----------+
+//! 0x0808_0004 | DevAddr                                       |
+//!             +-----------+-----------+-----------+-----------+
+//! 0x0808_0008 |                                               |
+//! 0x0808_000C | NwkSKey                                       |
+//! 0x0808_0010 |                                               |
+//! 0x0808_0014 |                                               |
+//!             +-----------+-----------+-----------+-----------+
+//! 0x0808_0018 |                                               |
+//! 0x0808_001C | AppSKey                                       |
+//! 0x0808_0020 |                                               |
+//! 0x0808_0024 |                                               |
+//!             +-----------+-----------+-----------+-----------+
+//! 0x0808_0028 | WakeupInterval        | ITempHumi | IVoltage  |
+//!             +-----------+-----------+-----------+-----------+
+//! ```
 //!
 //! ## Fields
 //!
@@ -50,16 +53,16 @@
 //!
 //! Example: With the following value at `0x0808_0028`:
 //!
-//!     +-------------------------------------------+
-//!     | 00000384   00000000 | 00000001 | 00000004 |
-//!     +-------------------------------------------+
+//! ```text
+//! +-------------------------------------------+
+//! | 00000384   00000000 | 00000001 | 00000004 |
+//! +-------------------------------------------+
+//! ```
 //!
 //! ...the temperature and humidity will be sent every 15 minutes, while the
 //! voltage will be sent every hour.
 
 use core::{convert::TryInto, fmt};
-
-use stm32l0xx_hal::pac;
 
 pub const BASE_ADDR: usize = 0x0808_0000;
 pub const CONFIG_DATA_SIZE: usize = 44;
@@ -114,13 +117,16 @@ impl Config {
     ///
     /// Returns an error if the version field does not contain a supported
     /// value.
-    pub fn read_from_eeprom(_flash: &mut pac::FLASH) -> Result<Self, ConfigError> {
-        // Note(unsafe): Read with no side effects. Because we have a mutable
-        // reference to the `FLASH` peripheral, no other part of the code can
-        // write to EEPROM at the same time, so the slice should remain valid
-        // for the duration of this function.
+    ///
+    /// UNSAFE: This method is unsafe because it reads raw memory. When calling
+    /// this, ensure that no other part of the code can write to EEPROM at the
+    /// same time. An easy way to do this, is to hold a mutable reference to
+    /// the `pac::FLASH` peripheral.
+    pub unsafe fn read_from_eeprom() -> Result<Self, ConfigError> {
+        // Note(unsafe): Read with no side effects. See function docs for more
+        // information.
         let config_data: &[u8] =
-            unsafe { core::slice::from_raw_parts(BASE_ADDR as *const u8, CONFIG_DATA_SIZE) };
+            core::slice::from_raw_parts(BASE_ADDR as *const u8, CONFIG_DATA_SIZE);
 
         // Determine version
         let version: ConfigVersion = match config_data[0] {

@@ -1,5 +1,5 @@
 [package]
-name = "gfroerli-firmware"
+name = "firmware"
 version = "0.2.0"
 authors = [
     "Raphael Nestler <raphael.nestler@gmail.com>",
@@ -12,20 +12,8 @@ license = "GPL-3.0"
 repository = "https://github.com/gfroerli/firmware"
 edition = "2018"
 
-[profile.dev]
-codegen-units = 1
-opt-level = 2
-
-[profile.release]
-lto = true
-debug = true
-codegen-units = 1
-
-[profile.dev.package."*"]
-opt-level = 2
-overflow-checks = false
-
 [dependencies]
+config = { path = "../config" }
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
 cortex-m-rtic = "0.5"
@@ -43,3 +31,16 @@ panic-persist = { version = "0.2", features = ["utf8"] }
 [features]
 # Enable some more verbose logging and debug assertions
 dev = []
+
+[profile.dev]
+codegen-units = 1
+opt-level = 2
+
+[profile.release]
+lto = true
+debug = true
+codegen-units = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+overflow-checks = false
