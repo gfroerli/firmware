@@ -50,6 +50,13 @@ data) as well as some debug assertions, enable the `dev` features
 
     cargo embed flash --release --features dev
 
+## Run Unit Tests
+
+Unit tests run on the host system, so we need to specify the target accordingly:
+```
+cargo test --target x86_64-unknown-linux-gnu --tests
+cargo test --target x86_64-unknown-linux-gnu --tests --features dev
+```
 
 ## License
 
