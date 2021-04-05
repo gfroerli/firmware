@@ -145,11 +145,11 @@ const APP: () = {
         }
 
         // Read config from EEPROM
-        let config = match Config::read_from_eeprom(&mut dp.FLASH) {
-            Ok(c) => c,
-            Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
-        };
-        writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+        //let config = match Config::read_from_eeprom(&mut dp.FLASH) {
+        //    Ok(c) => c,
+        //    Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
+        //};
+        //writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);
