@@ -67,8 +67,11 @@ use core::{convert::TryInto, fmt};
 pub const BASE_ADDR: usize = 0x0808_0000;
 pub const CONFIG_DATA_SIZE: usize = 44;
 
+#[derive(PartialEq, Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde_repr::Deserialize_repr))]
+#[repr(u8)]
 pub enum ConfigVersion {
-    V1,
+    V1 = 1,
 }
 
 impl fmt::Display for ConfigVersion {
@@ -95,14 +98,18 @@ impl fmt::Display for ConfigError {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Config {
     /// Configuration format version
     pub version: ConfigVersion,
     /// LoRaWAN device address (4 bytes)
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "hex::serde::deserialize"))]
     pub devaddr: [u8; 4],
     /// LoRaWAN ABP network session key (16 bytes)
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "hex::serde::deserialize"))]
     pub nwkskey: [u8; 16],
     /// LoRaWAN ABP app session key (16 bytes)
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "hex::serde::deserialize"))]
     pub appskey: [u8; 16],
     /// How often (in seconds) the device should wake up to start measurement(s)
     pub wakeup_interval_seconds: u16,
@@ -168,5 +175,30 @@ impl Config {
             nth_temp_humi,
             nth_voltage,
         })
+    }
+
+    /// Serialize the configuration into the in-memory representation.
+    pub fn serialize(&self) -> [u8; CONFIG_DATA_SIZE] {
+        let mut data = [0; CONFIG_DATA_SIZE];
+
+        // Write version
+        data[0] = 1;
+
+        // Write magic bytes
+        data[1] = 0x23;
+        data[2] = 0x42;
+        data[3] = 0x99;
+
+        // Write keys
+        data[0x04..=0x07].copy_from_slice(&self.devaddr);
+        data[0x08..=0x17].copy_from_slice(&self.nwkskey);
+        data[0x18..=0x27].copy_from_slice(&self.appskey);
+
+        // Write config
+        data[0x28..=0x29].copy_from_slice(&u16::to_le_bytes(self.wakeup_interval_seconds));
+        data[0x2A] = self.nth_temp_humi;
+        data[0x2B] = self.nth_voltage;
+
+        data
     }
 }
