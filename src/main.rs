@@ -6,6 +6,7 @@ use core::fmt::Write;
 
 use one_wire_bus::OneWire;
 use panic_persist as _;
+use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
 use rtic::app;
 use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
 use stm32l0xx_hal::gpio::{
@@ -29,12 +30,18 @@ mod version;
 use config::Config;
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
-use leds::{LedState, StatusLeds};
-use monotonic_stm32l0::{Tim6Monotonic, U16Ext};
+use leds::StatusLeds;
+use measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
+use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+enum LedDisableTarget {
+    Red,
+    All,
+}
 
 #[app(
     device = stm32l0::stm32l0x1,
@@ -56,11 +63,14 @@ const APP: () = {
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
         ds18b20: Ds18b20,
 
+        // RN2483
+        rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
+
         // Blocking delay provider
         delay: Tim7Delay,
     }
 
-    #[init(spawn = [toggle_led, start_measurements])]
+    #[init(spawn = [join, start_measurements])]
     fn init(ctx: init::Context) -> init::LateResources {
         let _p: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
@@ -92,6 +102,20 @@ const APP: () = {
             dp.USART1,
             gpiob.pb6.into_floating_input(),
             gpiob.pb7.into_floating_input(),
+            serial::Config {
+                baudrate: time::Bps(57_600),
+                wordlength: serial::WordLength::DataBits8,
+                parity: serial::Parity::ParityNone,
+                stopbits: serial::StopBits::STOP1,
+            },
+            &mut rcc,
+        )
+        .unwrap();
+        let mut lpuart1 = serial::Serial::lpuart1(
+            dp.LPUART1,
+            gpioa.pa2.into_floating_input(),
+            gpioa.pa3.into_floating_input(),
+            // Config: See RN2483 datasheet, table 3-1
             serial::Config {
                 baudrate: time::Bps(57_600),
                 wordlength: serial::WordLength::DataBits8,
@@ -159,7 +183,8 @@ const APP: () = {
         let val = supply_monitor.read_supply();
         writeln!(debug, "Supply: {:?}", val).unwrap();
 
-        writeln!(debug, "Initialize one-wire DS18B20 sensor").unwrap();
+        // Initialize DS18B20
+        writeln!(debug, "Init DS18B20…").unwrap();
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire = OneWire::new(one_wire_pin).unwrap();
         let ds18b20 =
@@ -174,17 +199,68 @@ const APP: () = {
         );
         status_leds.disable_all();
 
+        // Set up I²C pins
         writeln!(debug, "Initialize I²C peripheral").unwrap();
         let sda = gpioa.pa10.into_open_drain_output();
         let scl = gpioa.pa9.into_open_drain_output();
         let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
 
+        // Initialize SHTC3
+        writeln!(debug, "Init SHTC3…").unwrap();
         let mut sht = shtc3(i2c);
         sht.wakeup(&mut delay)
             .expect("SHTCx: Could not wake up sensor");
 
+        // Reset RN2xx3
+        writeln!(debug, "Init RN2483…").unwrap();
+        writeln!(debug, "RN2483: Hard reset…").unwrap();
+        let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
+        rn_reset_pin.set_low().expect("Could not set RN reset pin");
+        delay.delay_us(500);
+        rn_reset_pin.set_high().expect("Could not set RN reset pin");
+        delay.delay_ms(195); // 100ms until TX line is up, 85ms until version is sent, 10ms extra
+
+        // Clear hardware error flags
+        lpuart1.clear_errors();
+
+        // Initialize RN2xx3
+        let mut rn = rn2483_868(lpuart1);
+
+        // Show device info
+        writeln!(debug, "RN2483: Device info").unwrap();
+        match rn.hweui() {
+            Ok(hweui) => writeln!(debug, "  Hardware EUI: {}", hweui).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read hweui: {:?}", e).unwrap(),
+        };
+        match rn.version() {
+            Ok(version) => writeln!(debug, "  Version: {}", version).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read version: {:?}", e).unwrap(),
+        };
+        match rn.vdd() {
+            Ok(vdd) => writeln!(debug, "  VDD voltage: {} mV", vdd).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read voltage: {:?}", e).unwrap(),
+        };
+
+        // Set keys
+        writeln!(debug, "RN2483: Setting keys...").unwrap();
+        writeln!(
+            debug,
+            "  Dev addr: {:x}{:x}{:x}{:x}",
+            config.devaddr[0], config.devaddr[1], config.devaddr[2], config.devaddr[3],
+        )
+        .unwrap();
+
+        rn.set_dev_addr_slice(&config.devaddr)
+            .expect("Could not set dev addr");
+        rn.set_network_session_key_slice(&config.nwkskey)
+            .expect("Could not set network session key");
+        rn.set_app_session_key_slice(&config.appskey)
+            .expect("Could not set app session key");
+        rn.set_data_rate(DataRateEuCn::Sf8Bw125)
+            .expect("Could not set data rate");
+
         // Spawn tasks
-        ctx.spawn.toggle_led().unwrap();
+        ctx.spawn.join().unwrap();
         ctx.spawn.start_measurements().unwrap();
 
         writeln!(debug, "Initialization done").unwrap();
@@ -195,37 +271,49 @@ const APP: () = {
             sht,
             one_wire,
             ds18b20,
+            rn,
             delay,
         }
     }
 
-    #[task(schedule = [toggle_led], resources = [status_leds])]
-    fn toggle_led(ctx: toggle_led::Context) {
-        static mut STATE: LedState = LedState::Green;
+    /// Join LoRaWAN network via ABP.
+    #[task(resources = [debug, status_leds, rn], schedule = [disable_led], priority = 1)]
+    fn join(ctx: join::Context) {
+        let debug = ctx.resources.debug;
+        let mut status_leds = ctx.resources.status_leds;
+        let rn = ctx.resources.rn;
 
-        // Change LED on every interrupt
-        match STATE {
-            LedState::Green => {
-                ctx.resources.status_leds.disable_green();
-                ctx.resources.status_leds.enable_red();
-                *STATE = LedState::Red;
-            }
-            LedState::Red => {
-                ctx.resources.status_leds.disable_red();
-                ctx.resources.status_leds.enable_yellow();
-                *STATE = LedState::Yellow;
-            }
-            LedState::Yellow => {
-                ctx.resources.status_leds.disable_yellow();
-                ctx.resources.status_leds.enable_green();
-                *STATE = LedState::Green;
+        status_leds.lock(|leds: &mut StatusLeds| leds.enable_yellow());
+        for i in 1..=3 {
+            writeln!(debug, "RN2483: Joining via ABP (attempt {})…", i).unwrap();
+            match rn.join(JoinMode::Abp) {
+                Ok(()) => {
+                    writeln!(debug, "RN2483: Join successful").unwrap();
+                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_green());
+                    ctx.schedule
+                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::All)
+                        .ok()
+                        .unwrap();
+                    break;
+                }
+                Err(e) => {
+                    writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap();
+                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_red());
+                    ctx.schedule
+                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::Red)
+                        .ok()
+                        .unwrap();
+                }
             }
         }
+    }
 
-        // Re-schedule ourselves
-        ctx.schedule
-            .toggle_led(ctx.scheduled + 500.millis())
-            .unwrap();
+    #[task(resources = [status_leds], capacity = 2, priority = 2)]
+    fn disable_led(ctx: disable_led::Context, target: LedDisableTarget) {
+        match target {
+            LedDisableTarget::Red => ctx.resources.status_leds.disable_red(),
+            LedDisableTarget::All => ctx.resources.status_leds.disable_all(),
+        }
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
@@ -242,18 +330,20 @@ const APP: () = {
 
         // Schedule reading of the measurement results
         ctx.schedule
-            .read_measurement_results(ctx.scheduled + 500.millis())
+            .read_measurement_results(Instant::now() + 500.millis())
             .unwrap();
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
-    #[task(resources = [debug, delay, sht, one_wire, ds18b20], schedule = [start_measurements])]
+    #[task(resources = [debug, delay, sht, one_wire, ds18b20, rn], schedule = [start_measurements])]
     fn read_measurement_results(mut ctx: read_measurement_results::Context) {
+        static mut COUNTER: usize = 0;
+
         // Fetch measurement results
-        let measurement = ctx
+        let shtc3_measurement = ctx
             .resources
             .sht
-            .get_measurement_result()
+            .get_raw_measurement_result()
             .expect("SHTCx: Failed to read measurement");
         let ds18b20_measurement = ctx
             .resources
@@ -263,25 +353,56 @@ const APP: () = {
 
         // Print results
         if cfg!(feature = "dev") {
+            use shtcx::{Humidity, Temperature};
             writeln!(
                 ctx.resources.debug,
                 "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
                 (ds18b20_measurement as f32) / 16.0,
                 ds18b20_measurement,
-                measurement.temperature.as_degrees_celsius(),
-                measurement.humidity.as_percent()
+                Temperature::from_raw(shtc3_measurement.temperature).as_degrees_celsius(),
+                Humidity::from_raw(shtc3_measurement.humidity).as_percent(),
             )
             .unwrap();
         } else {
             writeln!(
                 ctx.resources.debug,
-                "DS18B20: 0x{:04x} | SHTC3: {:.2}°C, {:.2}%RH",
-                ds18b20_measurement,
-                measurement.temperature.as_degrees_celsius(),
-                measurement.humidity.as_percent()
+                "DS18B20: 0x{:04x} | SHTC3: temp_raw={}, humi_raw={}",
+                ds18b20_measurement, shtc3_measurement.temperature, shtc3_measurement.humidity
             )
             .unwrap();
         }
+
+        // For testing, transmit every 30s
+        if *COUNTER % 30 == 0 {
+            let fport = 123;
+
+            // Encode measurement
+            let message = MeasurementMessage {
+                t_water: Some(U12::new(ds18b20_measurement)),
+                t_inside: Some(shtc3_measurement.temperature),
+                rh_inside: Some(shtc3_measurement.humidity),
+                v_supply: Some(U12::new(0b1111_1010_0101)),
+            };
+            let mut buf = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+            let length = message.encode(&mut buf);
+
+            // Transmit
+            writeln!(ctx.resources.debug, "Transmitting measurement...").unwrap();
+            let tx_result = ctx.resources.rn.transmit_slice(
+                ConfirmationMode::Unconfirmed,
+                fport,
+                &buf.0[0..length],
+            );
+            if let Err(e) = tx_result {
+                writeln!(
+                    ctx.resources.debug,
+                    "Error: Transmitting LoRaWAN package failed: {:?}",
+                    e
+                )
+                .unwrap();
+            }
+        }
+        *COUNTER += 1;
 
         // Re-schedule a measurement
         ctx.schedule
