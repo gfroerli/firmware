@@ -115,7 +115,7 @@ const APP: () = {
             &mut rcc,
         )
         .unwrap();
-        let lpuart1 = serial::Serial::lpuart1(
+        let mut lpuart1 = serial::Serial::lpuart1(
             dp.LPUART1,
             gpioa.pa2.into_floating_input(),
             gpioa.pa3.into_floating_input(),
@@ -215,25 +215,35 @@ const APP: () = {
         sht.wakeup(&mut delay)
             .expect("SHTCx: Could not wake up sensor");
 
-        // Initialize RN2xx3
+        // Reset RN2xx3
         writeln!(debug, "Init RN2483…").unwrap();
-        let mut rn = rn2483_868(lpuart1);
         writeln!(debug, "RN2483: Hard reset…").unwrap();
         let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
         rn_reset_pin.set_low().expect("Could not set RN reset pin");
-        delay.delay_us(1000); // TODO: How long?
+        delay.delay_us(500);
         rn_reset_pin.set_high().expect("Could not set RN reset pin");
-        let version = rn.reset().expect("Could not soft reset");
-        writeln!(debug, "RN2483: Version {}", version).unwrap();
+        delay.delay_ms(195); // 100ms until TX line is up, 85ms until version is sent, 10ms extra
+
+        // Clear hardware error flags
+        lpuart1.clear_errors();
+
+        // Initialize RN2xx3
+        let mut rn = rn2483_868(lpuart1);
 
         // Show device info
         writeln!(debug, "RN2483: Device info").unwrap();
-        let hweui = rn.hweui().expect("Could not read hweui");
-        writeln!(debug, "  Hardware EUI: {}", hweui).unwrap();
-        let model = rn.model().expect("Could not read model");
-        writeln!(debug, "  Model: {:?}", model).unwrap();
-        let vdd = rn.vdd().expect("Could not read vdd");
-        writeln!(debug, "  VDD voltage: {} mV", vdd).unwrap();
+        match rn.hweui() {
+            Ok(hweui) => writeln!(debug, "  Hardware EUI: {}", hweui).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read hweui: {:?}", e).unwrap(),
+        };
+        match rn.version() {
+            Ok(version) => writeln!(debug, "  Version: {}", version).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read version: {:?}", e).unwrap(),
+        };
+        match rn.vdd() {
+            Ok(vdd) => writeln!(debug, "  VDD voltage: {} mV", vdd).unwrap(),
+            Err(e) => writeln!(debug, "  Could not read voltage: {:?}", e).unwrap(),
+        };
 
         // Set keys
         writeln!(debug, "RN2483: Setting keys...").unwrap();
