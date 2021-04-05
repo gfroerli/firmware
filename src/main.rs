@@ -38,10 +38,6 @@ use version::HardwareVersionDetector;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const DEV_ADDR: &str = env!("GFROERLI_DEV_ADDR");
-const NETWORK_SESSION_KEY: &str = env!("GFROERLI_NETWORK_SESSION_KEY");
-const APP_SESSION_KEY: &str = env!("GFROERLI_APP_SESSION_KEY");
-
 enum LedDisableTarget {
     Red,
     All,
@@ -247,13 +243,18 @@ const APP: () = {
 
         // Set keys
         writeln!(debug, "RN2483: Setting keys...").unwrap();
-        writeln!(debug, "  Dev addr: {}", DEV_ADDR).unwrap();
+        writeln!(
+            debug,
+            "  Dev addr: {:x}{:x}{:x}{:x}",
+            config.devaddr[0], config.devaddr[1], config.devaddr[2], config.devaddr[3],
+        )
+        .unwrap();
 
-        rn.set_dev_addr_hex(DEV_ADDR)
+        rn.set_dev_addr_slice(&config.devaddr)
             .expect("Could not set dev addr");
-        rn.set_network_session_key_hex(NETWORK_SESSION_KEY)
+        rn.set_network_session_key_slice(&config.nwkskey)
             .expect("Could not set network session key");
-        rn.set_app_session_key_hex(APP_SESSION_KEY)
+        rn.set_app_session_key_slice(&config.appskey)
             .expect("Could not set app session key");
         rn.set_data_rate(DataRateEuCn::Sf8Bw125)
             .expect("Could not set data rate");
