@@ -68,7 +68,7 @@ const APP: () = {
 
         // DS18B20 water temperature sensor
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
-        ds18b20: Ds18b20,
+        ds18b20: Option<Ds18b20>,
 
         // RN2483
         rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
@@ -194,8 +194,9 @@ const APP: () = {
         writeln!(debug, "Init DS18B20…").unwrap();
         let one_wire_pin = gpioa.pa6.into_open_drain_output();
         let mut one_wire = OneWire::new(one_wire_pin).unwrap();
-        let ds18b20 =
-            Ds18b20::find(&mut one_wire, &mut delay).expect("Could not find DS18B20 sensor");
+        let ds18b20 = Ds18b20::find(&mut one_wire, &mut delay)
+            .map_err(|err| writeln!(debug, "Could not find DS18B20: {:?}", err).unwrap())
+            .ok();
 
         // Initialize LEDs
         writeln!(debug, "Initialize LEDs").unwrap();
@@ -328,16 +329,17 @@ const APP: () = {
     fn start_measurements(mut ctx: start_measurements::Context) {
         let mut measurement_plan = MeasurementPlan {
             measure_sht: true,
-            measure_ds18b20: true,
+            measure_ds18b20: ctx.resources.ds18b20.is_some(),
         };
         ctx.resources
             .sht
             .start_measurement(PowerMode::NormalMode)
             .unwrap_or_else(|_| measurement_plan.measure_sht = false);
-        ctx.resources
-            .ds18b20
-            .start_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
-            .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
+        if let Some(ds18b20) = ctx.resources.ds18b20 {
+            ds18b20
+                .start_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
+                .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
+        }
 
         // Schedule reading of the measurement results
         ctx.schedule
@@ -363,10 +365,11 @@ const APP: () = {
         let shtc3_temperature = sht_measurement.as_ref().map(|v| v.temperature);
         let shtc3_humidity = sht_measurement.as_ref().map(|v| v.humidity);
         let ds18b20_measurement = if measurement_plan.measure_ds18b20 {
-            ctx.resources
-                .ds18b20
-                .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
-                .ok()
+            ctx.resources.ds18b20.and_then(|ds18b20| {
+                ds18b20
+                    .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+                    .ok()
+            })
         } else {
             None
         };
