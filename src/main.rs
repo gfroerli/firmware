@@ -216,8 +216,9 @@ const APP: () = {
         // Initialize SHTC3
         writeln!(debug, "Init SHTC3…").unwrap();
         let mut sht = shtc3(i2c);
-        sht.wakeup(&mut delay)
-            .expect("SHTCx: Could not wake up sensor");
+        sht.wakeup(&mut delay).unwrap_or_else(|e| {
+            writeln!(debug, "SHTCx: Could not wake up sensor: {:?}", e).unwrap()
+        });
 
         // Reset RN2xx3
         writeln!(debug, "Init RN2483…").unwrap();
