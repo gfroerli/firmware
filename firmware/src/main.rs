@@ -181,18 +181,32 @@ const APP: () = {
         }
 
         // Read config from EEPROM
-        //
-        // Note(unsafe): We need to guarantee that no part of the code can
-        // write to EEPROM while it's being read. To ensure that, we hold a
-        // mutable reference to the FLASH peripheral.
-        let config = match unsafe {
+        let config = match {
+            // Note: We need to guarantee that no part of the code can write to
+            // EEPROM while it's being read. To ensure that, we hold a mutable
+            // reference to the FLASH peripheral.
             let _flash = &mut dp.FLASH;
-            Config::read_from_eeprom()
+
+            // Note(unsafe): Read with no side effects. This is fine as long as
+            // the data in EEPROM is not being written while it's being read.
+            // This is safe as long as we hold a mutable reference to the flash
+            // peripheral. See comment above for details.
+            let config_data: &[u8] = unsafe {
+                core::slice::from_raw_parts(
+                    config::BASE_ADDR as *const u8,
+                    config::CONFIG_DATA_SIZE,
+                )
+            };
+
+            Config::from_slice(config_data)
         } {
             Ok(c) => c,
             Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
         };
         writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+        if cfg!(feature = "dev") {
+            writeln!(debug, "Config: {:?}", config).unwrap();
+        }
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);

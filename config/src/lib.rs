@@ -82,7 +82,10 @@ impl fmt::Display for ConfigVersion {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ConfigError {
+    /// Wrong slice length
+    WrongSliceLength,
     /// The version byte is not supported.
     UnsupportedVersion(u8),
     /// Wrong magic bytes, the configuration data might be corrupted.
@@ -94,11 +97,13 @@ impl fmt::Display for ConfigError {
         match self {
             Self::UnsupportedVersion(v) => write!(f, "Unsupported config format version ({})", v),
             Self::WrongMagicBytes => write!(f, "Wrong magic bytes"),
+            Self::WrongSliceLength => write!(f, "Wrong slice length"),
         }
     }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct Config {
     /// Configuration format version
     pub version: ConfigVersion,
@@ -120,51 +125,48 @@ pub struct Config {
 }
 
 impl Config {
-    /// Read current device configuration from EEPROM.
+    /// Read current device configuration from a slice.
     ///
     /// Returns an error if the version field does not contain a supported
-    /// value.
+    /// value, or if the slice length is less than `CONFIG_DATA_SIZE`.
     ///
-    /// UNSAFE: This method is unsafe because it reads raw memory. When calling
-    /// this, ensure that no other part of the code can write to EEPROM at the
-    /// same time. An easy way to do this, is to hold a mutable reference to
-    /// the `pac::FLASH` peripheral.
-    pub unsafe fn read_from_eeprom() -> Result<Self, ConfigError> {
-        // Note(unsafe): Read with no side effects. See function docs for more
-        // information.
-        let config_data: &[u8] =
-            core::slice::from_raw_parts(BASE_ADDR as *const u8, CONFIG_DATA_SIZE);
+    /// TODO: Fuzz this!
+    pub fn from_slice(slice: &[u8]) -> Result<Self, ConfigError> {
+        // Validate slice length
+        if slice.len() < CONFIG_DATA_SIZE {
+            return Err(ConfigError::WrongSliceLength);
+        }
 
         // Determine version
-        let version: ConfigVersion = match config_data[0] {
+        let version: ConfigVersion = match slice[0] {
             1 => ConfigVersion::V1,
             other => return Err(ConfigError::UnsupportedVersion(other)),
         };
 
         // Validate magic bytes
-        if &config_data[0x01..0x04] != &[0x23, 0x42, 0x99] {
+        if &slice[0x01..0x04] != &[0x23, 0x42, 0x99] {
             return Err(ConfigError::WrongMagicBytes);
         }
 
         // Read keys
-        let devaddr: [u8; 4] = config_data[0x04..=0x07]
+        let devaddr: [u8; 4] = slice[0x04..=0x07]
             .try_into()
             .expect("Reading devaddr failed");
-        let nwkskey: [u8; 16] = config_data[0x08..=0x17]
+        let nwkskey: [u8; 16] = slice[0x08..=0x17]
             .try_into()
             .expect("Reading nwkskey failed");
-        let appskey: [u8; 16] = config_data[0x18..=0x27]
+        let appskey: [u8; 16] = slice[0x18..=0x27]
             .try_into()
             .expect("Reading appskey failed");
 
         // Read interval data
         let wakeup_interval_seconds = u16::from_le_bytes(
-            config_data[0x28..=0x29]
+            slice[0x28..=0x29]
                 .try_into()
                 .expect("Reading wakeup interval failed"),
         );
-        let nth_temp_humi = config_data[0x2A];
-        let nth_voltage = config_data[0x2B];
+        let nth_temp_humi = slice[0x2A];
+        let nth_voltage = slice[0x2B];
 
         Ok(Self {
             version,
@@ -200,5 +202,39 @@ impl Config {
         data[0x2B] = self.nth_voltage;
 
         data
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_roundtrip_ser_de() {
+        let config = Config {
+            version: ConfigVersion::V1,
+            devaddr: [0; 4],
+            nwkskey: [1; 16],
+            appskey: [2; 16],
+            wakeup_interval_seconds: 123,
+            nth_temp_humi: 1,
+            nth_voltage: 2,
+        };
+
+        // Serialize
+        let serialized = config.serialize();
+
+        // Deserialize
+        let deserialized = Config::from_slice(&serialized).unwrap();
+
+        // Compare with original
+        assert_eq!(deserialized, config);
+    }
+
+    #[test]
+    fn test_from_slice_length_validation() {
+        let data = [1, 2, 3];
+        let err = Config::from_slice(&data).unwrap_err();
+        assert_eq!(err, ConfigError::WrongSliceLength);
     }
 }
