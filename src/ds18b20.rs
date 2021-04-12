@@ -25,6 +25,7 @@ mod commands {
     pub const READ_SCRATCHPAD: u8 = 0xBE;
 }
 
+#[derive(Copy, Clone)]
 pub struct Ds18b20(Address);
 
 impl Ds18b20 {
