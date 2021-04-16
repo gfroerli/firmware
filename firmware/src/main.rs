@@ -2,8 +2,10 @@
 #![no_std]
 #![cfg(target_arch = "arm")]
 
+// Libcore
 use core::fmt::Write;
 
+// Third party
 use one_wire_bus::OneWire;
 use panic_persist as _;
 use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
@@ -16,9 +18,10 @@ use stm32l0xx_hal::gpio::{
 use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
-type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
+// First party crates
+use config::Config;
 
-mod config;
+// Modules
 mod delay;
 mod ds18b20;
 mod leds;
@@ -27,7 +30,7 @@ mod monotonic_stm32l0;
 mod supply_monitor;
 mod version;
 
-use config::Config;
+// Crate-internal
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
 use leds::StatusLeds;
@@ -35,6 +38,8 @@ use measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
 use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
+
+type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -176,11 +181,32 @@ const APP: () = {
         }
 
         // Read config from EEPROM
-        let config = match Config::read_from_eeprom(&mut dp.FLASH) {
+        let config = match {
+            // Note: We need to guarantee that no part of the code can write to
+            // EEPROM while it's being read. To ensure that, we hold a mutable
+            // reference to the FLASH peripheral.
+            let _flash = &mut dp.FLASH;
+
+            // Note(unsafe): Read with no side effects. This is fine as long as
+            // the data in EEPROM is not being written while it's being read.
+            // This is safe as long as we hold a mutable reference to the flash
+            // peripheral. See comment above for details.
+            let config_data: &[u8] = unsafe {
+                core::slice::from_raw_parts(
+                    config::BASE_ADDR as *const u8,
+                    config::CONFIG_DATA_SIZE,
+                )
+            };
+
+            Config::from_slice(config_data)
+        } {
             Ok(c) => c,
             Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
         };
         writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+        if cfg!(feature = "dev") {
+            writeln!(debug, "Config: {:?}", config).unwrap();
+        }
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);

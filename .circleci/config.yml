@@ -17,12 +17,18 @@ jobs:
     steps:
       - checkout
       - run: apt update -y
-      - run: apt install -y gcc-arm-none-eabi
+      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev
       - run: rustup target add thumbv6m-none-eabi
-      - run: cargo build --release --bins --examples
-      - run: cargo build --release --bins --examples --features dev
-      - run: cargo test --target x86_64-unknown-linux-gnu --tests
-      - run: cargo test --target x86_64-unknown-linux-gnu --tests --features dev
+      # Test config
+      - run: cd config && cargo test --target x86_64-unknown-linux-gnu
+      # Build firmware (ARM)
+      - run: cd firmware && cargo build --release --bins --examples
+      - run: cd firmware && cargo build --release --bins --examples --features dev
+      # Test firmware (x86_64)
+      - run: cd firmware && cargo test --target x86_64-unknown-linux-gnu --tests
+      - run: cd firmware && cargo test --target x86_64-unknown-linux-gnu --tests --features dev
+      # Test config-flasher (x86_64)
+      - run: cd config-flasher && cargo test --target x86_64-unknown-linux-gnu
 
   fmt:
     docker:
@@ -30,4 +36,6 @@ jobs:
     steps:
       - checkout
       - run: rustup component add rustfmt
-      - run: cargo fmt -- --check
+      - run: cd firmware && cargo fmt -- --check
+      - run: cd config && cargo fmt -- --check
+      - run: cd config-flasher && cargo fmt -- --check
