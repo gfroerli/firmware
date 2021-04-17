@@ -174,7 +174,7 @@ const APP: () = {
             for (i, byte) in config_data.iter().enumerate() {
                 write!(debug, " {:02x}", byte).unwrap();
                 if (i + 1) % 16 == 0 {
-                    write!(debug, "\n").unwrap();
+                    writeln!(debug).unwrap();
                 }
             }
             write!(debug, "\n\n").unwrap();

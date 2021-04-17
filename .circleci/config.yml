@@ -6,6 +6,7 @@ workflows:
     jobs:
       - build
       - fmt
+      - clippy
 
 jobs:
   build:
@@ -29,6 +30,19 @@ jobs:
       - run: cd firmware && cargo test --target x86_64-unknown-linux-gnu --tests --features dev
       # Test config-flasher (x86_64)
       - run: cd config-flasher && cargo test --target x86_64-unknown-linux-gnu
+
+  clippy:
+    docker:
+      - image: rust:1.50.0
+    steps:
+      - checkout
+      - run: apt update -y
+      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev
+      - run: rustup component add clippy
+      - run: rustup target add thumbv6m-none-eabi
+      - run: cd firmware && cargo clippy --all-features -- -D warnings
+      - run: cd config && cargo clippy -- -D warnings
+      - run: cd config-flasher && cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
     docker:

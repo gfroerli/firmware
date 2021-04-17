@@ -144,7 +144,7 @@ impl Config {
         };
 
         // Validate magic bytes
-        if &slice[0x01..0x04] != &[0x23, 0x42, 0x99] {
+        if slice[0x01..0x04] != [0x23, 0x42, 0x99] {
             return Err(ConfigError::WrongMagicBytes);
         }
 
