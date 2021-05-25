@@ -482,13 +482,16 @@ const APP: () = {
                 fport,
                 &buf.0[0..length],
             );
-            if let Err(e) = tx_result {
+            if let Err(e) = &tx_result {
                 writeln!(
                     ctx.resources.debug,
                     "Error: Transmitting LoRaWAN package failed: {:?}",
                     e
                 )
                 .unwrap();
+            }
+            if let Ok(Some(downlink)) = tx_result {
+                writeln!(ctx.resources.debug, "Downlink: {:?}", downlink).unwrap();
             }
         }
         *COUNTER += 1;
