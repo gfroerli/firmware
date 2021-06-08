@@ -7,6 +7,11 @@ impl U12 {
     pub fn new(value: u16) -> Self {
         Self(value.min(0xFFF))
     }
+
+    /// Return the inner u16 (with the 4 uppermost bits set to 0).
+    pub fn as_u16(&self) -> u16 {
+        self.0
+    }
 }
 
 pub const MAX_MSG_LEN: usize = 8;
