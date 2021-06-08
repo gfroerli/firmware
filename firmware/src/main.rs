@@ -55,6 +55,39 @@ struct MeasurementPlan {
     measure_ds18b20: bool,
 }
 
+/// Store the initialized PWR peripheral.
+///
+/// This peripheral will be `take()`n in two different cases:
+///
+/// - The device is put into sleep after processing all sensor data
+/// - A panic happens which also puts the device to sleep for a short while
+static mut PWR: Option<(hal::pwr::PWR, cortex_m::peripheral::SCB)> = None;
+
+/// Custom panic handler, to avoid draining the battery in a panic loop:
+///
+/// - Persist panic info
+/// - Set RTC wakeup timer
+/// - Go to standby mode
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    // Persist panic information
+    panic_persist::report_panic_info(info);
+
+    // TODO: Set RTC wakeup timer
+
+    // Put device into standby mode
+    if let Some((mut pwr, mut scb)) = unsafe { PWR.take() } {
+        let mut standby = pwr.standby_mode(&mut scb);
+        loop {
+            standby.enter();
+        }
+    } else {
+        // Power peripheral was already taken...
+        // Simply reset instead.
+        cortex_m::peripheral::SCB::sys_reset();
+    }
+}
+
 #[app(
     device = stm32l0::stm32l0x1,
     peripherals = true,
@@ -84,7 +117,7 @@ const APP: () = {
 
     #[init(spawn = [join, start_measurements])]
     fn init(ctx: init::Context) -> init::LateResources {
-        let _p: rtic::Peripherals = ctx.core;
+        let cp: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
 
         // Init delay timer
@@ -100,6 +133,13 @@ const APP: () = {
         //let mut rcc = dp.RCC.freeze(
         //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
         //);
+
+        // Get access to PWR peripheral
+        let pwr = hal::pwr::PWR::new(dp.PWR, &mut rcc);
+        let rtic::Peripherals { SCB: scb, .. } = cp;
+
+        // Store PWR and SCB in the global static.
+        unsafe { PWR = Some((pwr, scb)); }
 
         // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
