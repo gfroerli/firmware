@@ -90,6 +90,8 @@ Then flash it to the attached board:
     cargo run -- --config config.toml
 
 
+## [TTN](./docs/ttn.md)
+
 ## License
 
 Licensed under GPL-3.0 license ([LICENSE.md](LICENSE.md) or
