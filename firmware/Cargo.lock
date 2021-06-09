@@ -280,8 +280,7 @@ dependencies = [
 [[package]]
 name = "panic-persist"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd2e692a5954e3eb0c16f5dbaa75c4332a78d85851521f138c04ad95d6f5ee42"
+source = "git+https://github.com/jamesmunns/panic-persist/#352a3cf16847232bd0bf7892b7682d9ac62da230"
 dependencies = [
  "cortex-m 0.6.7",
 ]

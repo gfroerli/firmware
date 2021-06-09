@@ -26,7 +26,7 @@ shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 bitfield = "0.13"
 
 [target.'cfg(target_arch = "arm")'.dependencies]
-panic-persist = { version = "0.2", features = ["utf8"] }
+panic-persist = { git = "https://github.com/jamesmunns/panic-persist/", features = ["utf8", "custom-panic-handler"] }
 
 [features]
 # Enable some more verbose logging and debug assertions
