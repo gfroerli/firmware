@@ -165,24 +165,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "firmware"
-version = "0.2.0"
-dependencies = [
- "bitfield",
- "config",
- "cortex-m 0.6.7",
- "cortex-m-rt",
- "cortex-m-rtic",
- "embedded-hal",
- "one-wire-bus",
- "panic-persist",
- "rn2xx3",
- "shtcx",
- "stm32l0",
- "stm32l0xx-hal",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -208,6 +190,24 @@ checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "gfroerli-firmware"
+version = "0.2.0"
+dependencies = [
+ "bitfield",
+ "config",
+ "cortex-m 0.6.7",
+ "cortex-m-rt",
+ "cortex-m-rtic",
+ "embedded-hal",
+ "one-wire-bus",
+ "panic-persist",
+ "rn2xx3",
+ "shtcx",
+ "stm32l0",
+ "stm32l0xx-hal",
 ]
 
 [[package]]
