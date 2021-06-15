@@ -1,5 +1,5 @@
 [package]
-name = "firmware"
+name = "gfroerli-firmware"
 version = "0.2.0"
 authors = [
     "Raphael Nestler <raphael.nestler@gmail.com>",
