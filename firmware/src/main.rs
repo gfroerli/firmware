@@ -78,6 +78,9 @@ const APP: () = {
         // RN2483
         rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
 
+        // Supply voltage monitor
+        supply_monitor: SupplyMonitor,
+
         // Blocking delay provider
         delay: Tim7Delay,
     }
@@ -212,9 +215,7 @@ const APP: () = {
         let adc = dp.ADC.constrain(&mut rcc);
         let a1 = gpioa.pa1.into_analog();
         let adc_enable_pin = gpioa.pa5.into_push_pull_output().downgrade();
-        let mut supply_monitor = SupplyMonitor::new(a1, adc, adc_enable_pin);
-        let val = supply_monitor.read_supply();
-        writeln!(debug, "Supply: {:?}", val).unwrap();
+        let supply_monitor = SupplyMonitor::new(a1, adc, adc_enable_pin);
 
         // Initialize DS18B20
         writeln!(debug, "Init DS18B20…").unwrap();
@@ -307,6 +308,7 @@ const APP: () = {
             one_wire,
             ds18b20,
             rn,
+            supply_monitor,
             delay,
         }
     }
@@ -375,7 +377,7 @@ const APP: () = {
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
-    #[task(resources = [debug, delay, sht, one_wire, ds18b20, rn], schedule = [start_measurements])]
+    #[task(resources = [debug, delay, sht, one_wire, ds18b20, supply_monitor, rn], schedule = [start_measurements])]
     fn read_measurement_results(
         mut ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
@@ -388,7 +390,6 @@ const APP: () = {
         } else {
             None
         };
-
         let shtc3_temperature = sht_measurement.as_ref().map(|v| v.temperature);
         let shtc3_humidity = sht_measurement.as_ref().map(|v| v.humidity);
         let ds18b20_measurement = if measurement_plan.measure_ds18b20 {
@@ -401,65 +402,75 @@ const APP: () = {
             None
         };
 
+        // Measure current supply voltage
+        let v_supply = ctx.resources.supply_monitor.read_supply_raw_u12();
+
         // Print results
+        let mut first = true;
+        macro_rules! delimit {
+            () => {{
+                #[allow(unused_assignments)]
+                // https://github.com/rust-lang/rust/issues/85774#issuecomment-857105289
+                if !first {
+                    write!(ctx.resources.debug, " | ").unwrap();
+                } else {
+                    first = false;
+                }
+            }};
+        }
+
         if cfg!(feature = "dev") {
+            // Development mode, print human-readable information
             use shtcx::{Humidity, Temperature};
-            match (ds18b20_measurement, sht_measurement) {
-                (Some(ds18b20), Some(sht)) => {
-                    writeln!(
-                        ctx.resources.debug,
-                        "DS18B20: {:.2}°C (0x{:04x}) | SHTC3: {:.2}°C, {:.2}%RH",
-                        (ds18b20 as f32) / 16.0,
-                        ds18b20,
-                        Temperature::from_raw(sht.temperature).as_degrees_celsius(),
-                        Humidity::from_raw(sht.humidity).as_percent()
-                    )
-                    .unwrap();
-                }
-                (Some(ds18b20), None) => {
-                    writeln!(
-                        ctx.resources.debug,
-                        "DS18B20: {:.2}°C (0x{:04x})",
-                        (ds18b20 as f32) / 16.0,
-                        ds18b20
-                    )
-                    .unwrap();
-                }
-                (None, Some(sht)) => {
-                    writeln!(
-                        ctx.resources.debug,
-                        "SHTC3: {:.2}°C, {:.2}%RH",
-                        Temperature::from_raw(sht.temperature).as_degrees_celsius(),
-                        Humidity::from_raw(sht.humidity).as_percent()
-                    )
-                    .unwrap();
-                }
-                (None, None) => {}
+            if let Some(ds18b20) = ds18b20_measurement {
+                delimit!();
+                write!(
+                    ctx.resources.debug,
+                    "DS18B20: {:.2}°C (0x{:04x})",
+                    (ds18b20 as f32) / 16.0,
+                    ds18b20,
+                )
+                .unwrap();
+            }
+            if let Some(sht) = sht_measurement {
+                delimit!();
+                write!(
+                    ctx.resources.debug,
+                    "SHTC3: {:.2}°C, {:.2}%RH",
+                    Temperature::from_raw(sht.temperature).as_degrees_celsius(),
+                    Humidity::from_raw(sht.humidity).as_percent(),
+                )
+                .unwrap();
+            }
+            if let Some(v_supply_f32) = v_supply
+                .as_ref()
+                .map(U12::as_u16)
+                .map(SupplyMonitor::convert_input)
+            {
+                delimit!();
+                write!(ctx.resources.debug, "VDD: {:.3}V", v_supply_f32).unwrap();
             }
         } else {
-            match (ds18b20_measurement, sht_measurement) {
-                (Some(ds18b20), Some(sht)) => {
-                    writeln!(
-                        ctx.resources.debug,
-                        "DS18B20: 0x{:04x} | SHTC3: 0x{:04x}, 0x{:04x}",
-                        ds18b20, sht.temperature, sht.humidity
-                    )
-                    .unwrap();
-                }
-                (Some(ds18b20), None) => {
-                    writeln!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
-                }
-                (None, Some(sht)) => {
-                    writeln!(
-                        ctx.resources.debug,
-                        "SHTC3: 0x{:04x}, 0x{:04x}",
-                        sht.temperature, sht.humidity
-                    )
-                    .unwrap();
-                }
-                (None, None) => {}
+            // Production mode, print raw values directly
+            if let Some(ds18b20) = ds18b20_measurement {
+                delimit!();
+                writeln!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
+            }
+            if let Some(sht) = sht_measurement {
+                delimit!();
+                writeln!(
+                    ctx.resources.debug,
+                    "SHTC3: 0x{:04x}, 0x{:04x}",
+                    sht.temperature, sht.humidity
+                )
+                .unwrap();
+            }
+            if let Some(v_supply_u12) = v_supply {
+                delimit!();
+                write!(ctx.resources.debug, "VDD: 0x{:04x}", v_supply_u12.as_u16(),).unwrap();
             }
         }
+        writeln!(ctx.resources.debug).unwrap();
 
         // For testing, transmit every 30s
         if *COUNTER % 30 == 0 {
@@ -470,7 +481,7 @@ const APP: () = {
                 t_water: ds18b20_measurement.map(U12::new),
                 t_inside: shtc3_temperature,
                 rh_inside: shtc3_humidity,
-                v_supply: Some(U12::new(0b1111_1010_0101)),
+                v_supply,
             };
             let mut buf = EncodedMeasurement([0u8; MAX_MSG_LEN]);
             let length = message.encode(&mut buf);
