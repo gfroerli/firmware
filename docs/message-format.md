@@ -32,16 +32,25 @@ send up to 8 values:
 |x1xxxxxx|reserved | -  |
 |1xxxxxxx|reserved | -  |
 
+The order of the values is the order in the table above.
+
+Since message always consists of whole bytes we pad any remaining bits with
+zeros.
+
 ## Examples
 
 If we have just `T_water=0b0000_0101_1010` we get the following frame:
 
 `|0000_0001|0000_0101|1010_0000|`.
 
-If we just have `T_water=0b0000_0101_1010` and `V_supply=0b1111_0001_1000` available we'd have the following
-frame:
+Note the 4 padding zeros at the end.
+
+If we have `T_water=0b0000_0101_1010` and `V_supply=0b1111_0001_1000` available
+we'd get the following frame:
 
 `|00001001|0000_0101|1010_1111|0001_1000|`
+
+Note that to store the two 12 bit values we only need 3 payload bytes.
 
 
 ## Code
