@@ -1,5 +1,16 @@
 # Message Format
 
+We use the FPort value to determine the message format which is used for the
+message.
+
+## Legacy Format (FPort = 1)
+
+The legacy format is just for little endian floats:
+
+`[T_water, T_inside, RH_inside, V_supply]`
+
+## New Format (FPort = 2)
+
 The message consist of one header byte `data_mask` followed by a variable
 amount of data:
 
