@@ -21,10 +21,19 @@ send up to 8 values:
 |x1xxxxxx|reserved | -  |
 |1xxxxxxx|reserved | -  |
 
-So if we just have `T_water` and `V_supply` available we'd have the following
+## Examples
+
+If we have just `T_water=0b0000_0101_1010` we get the following frame:
+
+`|0000_0001|0000_0101|1010_0000|`.
+
+If we just have `T_water=0b0000_0101_1010` and `V_supply=0b1111_0001_1000` available we'd have the following
 frame:
 
-`|0b00001001|T_water|V_supply|`
+`|00001001|0000_0101|1010_1111|0001_1000|`
+
+
+## Code
 
 The code to implement the message format is found here:
 [../firmware/src/measurement.rs](../firmware/src/measurement.rs)
