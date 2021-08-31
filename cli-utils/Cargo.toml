@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 clap = "3.0.0-beta.2"
-config = { path = "../config", features = ["serde_support"] }
+gfroerli-common = { path = "../common", features = ["serde_support"] }
 probe-rs = { git = "https://github.com/probe-rs/probe-rs.git" }
 toml = "0.5"

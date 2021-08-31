@@ -19,7 +19,7 @@ use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
 // First party crates
-use config::Config;
+use gfroerli_common::config::{self, Config};
 
 // Modules
 mod delay;
