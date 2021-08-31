@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), no_std)]
 //! # Device Configuration
 //!
 //! The device configuration is read from EEPROM.

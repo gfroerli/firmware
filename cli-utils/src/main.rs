@@ -4,7 +4,7 @@ use std::{fs, path::PathBuf, process::exit};
 
 use anyhow::{Context, Result};
 use clap::Clap;
-use config::Config;
+use gfroerli_common::config::Config;
 use probe_rs::{
     config::{MemoryRegion, NvmRegion},
     flashing::{BinOptions, FlashLoader, FlashProgress, ProgressEvent},

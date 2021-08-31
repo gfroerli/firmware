@@ -20,8 +20,8 @@ jobs:
       - run: apt update -y
       - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev
       - run: rustup target add thumbv6m-none-eabi
-      # Test config
-      - run: cd config && cargo test --target x86_64-unknown-linux-gnu
+      # Test common
+      - run: cd common && cargo test --target x86_64-unknown-linux-gnu
       # Build firmware (ARM)
       - run: cd firmware && cargo build --release --bins --examples
       - run: cd firmware && cargo build --release --bins --examples --features dev
@@ -41,7 +41,7 @@ jobs:
       - run: rustup component add clippy
       - run: rustup target add thumbv6m-none-eabi
       - run: cd firmware && cargo clippy --all-features -- -D warnings
-      - run: cd config && cargo clippy -- -D warnings
+      - run: cd common && cargo clippy -- -D warnings
       - run: cd cli-utils && cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
@@ -51,5 +51,5 @@ jobs:
       - checkout
       - run: rustup component add rustfmt
       - run: cd firmware && cargo fmt -- --check
-      - run: cd config && cargo fmt -- --check
+      - run: cd common && cargo fmt -- --check
       - run: cd cli-utils && cargo fmt -- --check

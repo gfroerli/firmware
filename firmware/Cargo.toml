@@ -13,7 +13,7 @@ repository = "https://github.com/gfroerli/firmware"
 edition = "2018"
 
 [dependencies]
-config = { path = "../config" }
+gfroerli-common = { path = "../common" }
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
 cortex-m-rtic = "0.5"
