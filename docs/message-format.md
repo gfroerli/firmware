@@ -21,16 +21,16 @@ amount of data:
 The `data_mask` has a bit set for every value that is available. This allows to
 send up to 8 values:
 
-|bit     |value    |type|
-|--------|---------|----|
-|xxxxxxx1|T_water  |u12 |
-|xxxxxx1x|T_inside |u16 |
-|xxxxx1xx|RH_inside|u16 |
-|xxxx1xxx|V_supply |u12 |
-|xxx1xxxx|reserved | -  |
-|xx1xxxxx|reserved | -  |
-|x1xxxxxx|reserved | -  |
-|1xxxxxxx|reserved | -  |
+|bit     |value    |type|conversion                           |unit|
+|--------|---------|----|-------------------------------------|----|
+|xxxxxxx1|T_water  |u12 |t / 16.0                             |°C  |
+|xxxxxx1x|T_inside |u16 |-45 + 175 * (val / 2^16)             |°C  |
+|xxxxx1xx|RH_inside|u16 |100 * (v / 2^16)                     |%RH |
+|xxxx1xxx|V_supply |u12 |v / 4095 * 3.3 / 9.31 * (9.31 + 6.04)|V   |
+|xxx1xxxx|reserved | -  |                                     |    |
+|xx1xxxxx|reserved | -  |                                     |    |
+|x1xxxxxx|reserved | -  |                                     |    |
+|1xxxxxxx|reserved | -  |                                     |    |
 
 The order of the values is the order in the table above.
 
