@@ -4,7 +4,7 @@ use stm32l0xx_hal::adc::{self, Adc, Align};
 use stm32l0xx_hal::gpio::gpioa::{PA, PA1};
 use stm32l0xx_hal::gpio::{Analog, Output, PushPull};
 
-use crate::measurement::U12;
+use gfroerli_common::measurement::U12;
 
 /// Manages the supply voltage monitoring circuit
 pub struct SupplyMonitor {

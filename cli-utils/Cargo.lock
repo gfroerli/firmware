@@ -319,6 +319,7 @@ dependencies = [
 name = "gfroerli-common"
 version = "0.1.0"
 dependencies = [
+ "bitfield",
  "hex",
  "serde",
  "serde_repr",

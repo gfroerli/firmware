@@ -20,12 +20,12 @@ use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
 
 // First party crates
 use gfroerli_common::config::{self, Config};
+use gfroerli_common::measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
 
 // Modules
 mod delay;
 mod ds18b20;
 mod leds;
-mod measurement;
 mod monotonic_stm32l0;
 mod supply_monitor;
 mod version;
@@ -34,7 +34,6 @@ mod version;
 use delay::Tim7Delay;
 use ds18b20::Ds18b20;
 use leds::StatusLeds;
-use measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
 use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;

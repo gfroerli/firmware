@@ -193,6 +193,9 @@ dependencies = [
 [[package]]
 name = "gfroerli-common"
 version = "0.1.0"
+dependencies = [
+ "bitfield",
+]
 
 [[package]]
 name = "gfroerli-firmware"
