@@ -1,5 +1,6 @@
-use std::{process, thread, time::Duration};
+use std::{thread, time::Duration};
 
+use anyhow::{Context, Result};
 use clap::Clap;
 use paho_mqtt as mqtt;
 
@@ -29,7 +30,7 @@ struct Opts {
     password: String,
 }
 
-fn main() {
+fn main() -> Result<()> {
     env_logger::init();
 
     let opts: Opts = Opts::parse();
@@ -41,10 +42,7 @@ fn main() {
         .server_uri(host)
         .finalize();
 
-    let mut client = mqtt::Client::new(create_opts).unwrap_or_else(|e| {
-        println!("Error creating the client: {:?}", e);
-        process::exit(1);
-    });
+    let mut client = mqtt::Client::new(create_opts).context("Error creating the client")?;
 
     // Initialize the consumer before connecting
     let rx = client.start_consuming();
@@ -61,31 +59,26 @@ fn main() {
 
     // Make the connection to the broker
     println!("Connecting to the MQTT broker...");
-    match client.connect(conn_opts) {
-        Ok(rsp) => {
-            if let Some(conn_rsp) = rsp.connect_response() {
-                println!(
-                    "Connected to: '{}' with MQTT version {}",
-                    conn_rsp.server_uri, conn_rsp.mqtt_version
-                );
-                if !conn_rsp.session_present {
-                    // Register subscriptions on the server
-                    println!("Subscribing to topics, with requested QoS: {:?}...", qos);
+    let rsp = client
+        .connect(conn_opts)
+        .context("Error connecting to the broker")?;
+    if let Some(conn_rsp) = rsp.connect_response() {
+        println!(
+            "Connected to: '{}' with MQTT version {}",
+            conn_rsp.server_uri, conn_rsp.mqtt_version
+        );
+        if !conn_rsp.session_present {
+            // Register subscriptions on the server
+            println!("Subscribing to topics, with requested QoS: {:?}...", qos);
 
-                    match client.subscribe_many(&subscriptions, &qos) {
-                        Ok(qosv) => println!("QoS granted: {:?}", qosv),
-                        Err(e) => {
-                            println!("Error subscribing to topics: {:?}", e);
-                            client.disconnect(None).unwrap();
-                            process::exit(1);
-                        }
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            println!("Error connecting to the broker: {:?}", e);
-            process::exit(1);
+            let qosv = client
+                .subscribe_many(&subscriptions, &qos)
+                .map_err(|e| {
+                    client.disconnect(None).unwrap();
+                    e
+                })
+                .context("Error subscribing to topics")?;
+            println!("QoS granted: {:?}", qosv);
         }
     }
 
@@ -109,4 +102,5 @@ fn main() {
         client.disconnect(None).unwrap();
     }
     println!("Exiting");
+    Ok(())
 }
