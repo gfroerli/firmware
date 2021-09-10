@@ -5,7 +5,7 @@ message.
 
 ## Legacy Format (FPort = 1)
 
-The legacy format is just for little endian floats:
+The legacy format is just four little endian floats:
 
 `[T_water, T_inside, RH_inside, V_supply]`
 
