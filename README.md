@@ -3,8 +3,9 @@
 ## Subcrates
 
 - `firmware`: The main firmware repository. This will generate the firmware binary.
-- `config`: Configuration management in EEPROM.
-- `config-flasher`: A tool that can write config EEPROM based on a config TOML file.
+- `common`: Common code like configuration management in EEPROM.
+- `cli-utils`: Utilities like `config-flasher` A tool that can write config
+  EEPROM based on a config TOML file.
 
 
 ## Timers
@@ -69,8 +70,9 @@ cargo test --target x86_64-unknown-linux-gnu --tests
 cargo test --target x86_64-unknown-linux-gnu --tests --features dev
 ```
 
+## Tools
 
-## Subcrate: Config Flasher
+### Config Flasher
 
 First, prepare a config file like this:
 
@@ -87,7 +89,7 @@ nth_voltage = 4
 
 Then flash it to the attached board:
 
-    cargo run -- --config config.toml
+    cargo run --bin config-flasher -- --config config.toml
 
 
 ## [TTN](./docs/ttn.md)

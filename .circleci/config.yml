@@ -11,14 +11,14 @@ workflows:
 jobs:
   build:
     docker:
-      - image: rust:1.50.0
+      - image: rust:1.54.0
     environment:
       # https://github.com/rust-lang/cargo/issues/2078
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - checkout
       - run: apt update -y
-      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev
+      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev cmake
       - run: rustup target add thumbv6m-none-eabi
       # Test common
       - run: cd common && cargo test --target x86_64-unknown-linux-gnu
@@ -33,11 +33,11 @@ jobs:
 
   clippy:
     docker:
-      - image: rust:1.50.0
+      - image: rust:1.54.0
     steps:
       - checkout
       - run: apt update -y
-      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev
+      - run: apt install -y gcc-arm-none-eabi libusb-1.0-0-dev cmake
       - run: rustup component add clippy
       - run: rustup target add thumbv6m-none-eabi
       - run: cd firmware && cargo clippy --all-features -- -D warnings
@@ -46,7 +46,7 @@ jobs:
 
   fmt:
     docker:
-      - image: rust:1.50.0
+      - image: rust:1.54.0
     steps:
       - checkout
       - run: rustup component add rustfmt

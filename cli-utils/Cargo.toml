@@ -1,12 +1,14 @@
 [package]
-name = "config-flasher"
+name = "gfroerli-cli-utils"
 version = "0.1.0"
-authors = ["Danilo Bargen <mail@dbrgn.ch>"]
+authors = ["Danilo Bargen <mail@dbrgn.ch>", "Raphael Nestler <mail@rnstlr.ch>"]
 edition = "2018"
 
 [dependencies]
 anyhow = "1"
-clap = "3.0.0-beta.2"
+clap = "3.0.0-beta.4"
 gfroerli-common = { path = "../common", features = ["serde_support"] }
 probe-rs = { git = "https://github.com/probe-rs/probe-rs.git" }
 toml = "0.5"
+paho-mqtt = "0.9.1"
+env_logger = "0.8.4"
