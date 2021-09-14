@@ -42,11 +42,6 @@ type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<Op
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-enum LedDisableTarget {
-    Red,
-    All,
-}
-
 #[derive(Debug, Copy, Clone)]
 /// Keep track which sensors should be measured
 struct MeasurementPlan {
@@ -84,7 +79,7 @@ const APP: () = {
         delay: Tim7Delay,
     }
 
-    #[init(spawn = [join, start_measurements])]
+    #[init(spawn = [start_measurements], schedule = [disable_leds])]
     fn init(ctx: init::Context) -> init::LateResources {
         let _p: rtic::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
@@ -276,26 +271,82 @@ const APP: () = {
             Err(e) => writeln!(debug, "  Could not read voltage: {:?}", e).unwrap(),
         };
 
-        // Set keys
+        // Print device address
         writeln!(debug, "RN2483: Setting keys...").unwrap();
         writeln!(
             debug,
-            "  Dev addr: {:x}{:x}{:x}{:x}",
+            "  Configured dev addr: {:x}{:x}{:x}{:x}",
             config.devaddr[0], config.devaddr[1], config.devaddr[2], config.devaddr[3],
         )
         .unwrap();
 
-        rn.set_dev_addr_slice(&config.devaddr)
-            .expect("Could not set dev addr");
-        rn.set_network_session_key_slice(&config.nwkskey)
-            .expect("Could not set network session key");
-        rn.set_app_session_key_slice(&config.appskey)
-            .expect("Could not set app session key");
-        rn.set_data_rate(DataRateEuCn::Sf8Bw125)
-            .expect("Could not set data rate");
+        // Check whether credentials have already been configured. Do this by
+        // looking at the device address. If it's still the default value
+        // (0x00000000), or if it's configured with a different device address,
+        // then set new keys. Otherwise, we can reuse the existing keys.
+        //
+        // (Note: This assumes that the keys for a device with a specific
+        // address do not change. If you want to change the keys, you must also
+        // change the device address.)
+        //
+        // TODO: Right now, when unplugging and re-plugging the devboard, often
+        // the dev addr is lost even though it was stored in EEPROM. This would
+        // be bad since we would lose the frame counter. Test whether this
+        // happens on controlled shutdowns (in standby mode) as well.
+        let dev_addr = rn.get_dev_addr_slice().unwrap();
+        writeln!(
+            debug,
+            "  Current dev addr: {:02x}{:02x}{:02x}{:02x}",
+            dev_addr[0], dev_addr[1], dev_addr[2], dev_addr[3],
+        )
+        .unwrap();
+        let upctr = rn.get_upctr().unwrap();
+        writeln!(debug, "  Current up counter: {}", upctr).unwrap();
+        if dev_addr == config.devaddr {
+            writeln!(debug, "  Re-using previously stored credentials").unwrap();
+        } else {
+            // Enable status LED to show that joining is in progress
+            status_leds.enable_yellow();
+
+            // Set keys and counters
+            writeln!(
+                debug,
+                "  Stored device address does not match, settings new keys"
+            )
+            .unwrap();
+            rn.set_dev_addr_slice(&config.devaddr)
+                .expect("Could not set dev addr");
+            rn.set_app_session_key_slice(&config.appskey)
+                .expect("Could not set app session key");
+            rn.set_network_session_key_slice(&config.nwkskey)
+                .expect("Could not set network session key");
+            rn.set_data_rate(DataRateEuCn::Sf8Bw125)
+                .expect("Could not set data rate");
+            rn.set_upctr(0).expect("Could not set up counter");
+            rn.set_dnctr(0).expect("Could not set down counter");
+        }
+
+        // Join LoRaWAN network via ABP (this should be instantaneous)
+        match rn.join(JoinMode::Abp) {
+            Ok(()) => {
+                writeln!(debug, "RN2483: Join successful").unwrap();
+                status_leds.enable_green();
+                ctx.schedule
+                    .disable_leds(Instant::now() + 100.millis())
+                    .ok()
+                    .unwrap();
+            }
+            Err(e) => {
+                writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap();
+                status_leds.enable_red();
+                ctx.schedule
+                    .disable_leds(Instant::now() + 1000.millis())
+                    .ok()
+                    .unwrap();
+            }
+        }
 
         // Spawn tasks
-        ctx.spawn.join().unwrap();
         ctx.spawn.start_measurements().unwrap();
 
         writeln!(debug, "Initialization done").unwrap();
@@ -312,44 +363,10 @@ const APP: () = {
         }
     }
 
-    /// Join LoRaWAN network via ABP.
-    #[task(resources = [debug, status_leds, rn], schedule = [disable_led], priority = 1)]
-    fn join(ctx: join::Context) {
-        let debug = ctx.resources.debug;
-        let mut status_leds = ctx.resources.status_leds;
-        let rn = ctx.resources.rn;
-
-        status_leds.lock(|leds: &mut StatusLeds| leds.enable_yellow());
-        for i in 1..=3 {
-            writeln!(debug, "RN2483: Joining via ABP (attempt {})…", i).unwrap();
-            match rn.join(JoinMode::Abp) {
-                Ok(()) => {
-                    writeln!(debug, "RN2483: Join successful").unwrap();
-                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_green());
-                    ctx.schedule
-                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::All)
-                        .ok()
-                        .unwrap();
-                    break;
-                }
-                Err(e) => {
-                    writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap();
-                    status_leds.lock(|leds: &mut StatusLeds| leds.enable_red());
-                    ctx.schedule
-                        .disable_led(Instant::now() + 100.millis(), LedDisableTarget::Red)
-                        .ok()
-                        .unwrap();
-                }
-            }
-        }
-    }
-
+    /// Disable all LEDs.
     #[task(resources = [status_leds], capacity = 2, priority = 2)]
-    fn disable_led(ctx: disable_led::Context, target: LedDisableTarget) {
-        match target {
-            LedDisableTarget::Red => ctx.resources.status_leds.disable_red(),
-            LedDisableTarget::All => ctx.resources.status_leds.disable_all(),
-        }
+    fn disable_leds(ctx: disable_leds::Context) {
+        ctx.resources.status_leds.disable_all();
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
@@ -506,9 +523,21 @@ const APP: () = {
         }
         *COUNTER += 1;
 
+        // Persist MAC changes
+        writeln!(ctx.resources.debug, "RN2483: Calling \"mac save\"").unwrap();
+        ctx.resources.rn.save_config().unwrap_or_else(|e| {
+            writeln!(
+                ctx.resources.debug,
+                "RN2483: Could not save config: {:?}",
+                e
+            )
+            .unwrap();
+        });
+
         // Re-schedule a measurement
+        // (TODO: Go to sleep here)
         ctx.schedule
-            .start_measurements(ctx.scheduled + 500.millis())
+            .start_measurements(ctx.scheduled + 5000.millis())
             .unwrap();
     }
 

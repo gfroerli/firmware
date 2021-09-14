@@ -317,9 +317,9 @@ checksum = "e2a38df5b15c8d5c7e8654189744d8e396bddc18ad48041a500ce52d6948941f"
 
 [[package]]
 name = "rn2xx3"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9098429b5f94f77e12ae9d13b402554d5dfba6fd59d2ca8abd8b0d78bcf57b0f"
+checksum = "e299df3aae3b7d947ec7ad19a42b05a95520ac5b65cab666b044b26fac64f6c8"
 dependencies = [
  "base16",
  "doc-comment",
