@@ -470,11 +470,11 @@ const APP: () = {
             // Production mode, print raw values directly
             if let Some(ds18b20) = ds18b20_measurement {
                 delimit!();
-                writeln!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
+                write!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
             }
             if let Some(sht) = sht_measurement {
                 delimit!();
-                writeln!(
+                write!(
                     ctx.resources.debug,
                     "SHTC3: 0x{:04x}, 0x{:04x}",
                     sht.temperature, sht.humidity
