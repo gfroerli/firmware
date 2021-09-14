@@ -1,7 +1,8 @@
 # Chip and probe config
 
 [default.general]
-chip = "STM32L071KBTx"
+# chip = "STM32L071KBTx"
+chip = "STM32L031K6Tx"
 
 [default.probe]
 protocol = "Swd"

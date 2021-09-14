@@ -23,7 +23,8 @@ embedded-hal = { version = "0.2.2", features = ["unproven"] }
 one-wire-bus = "0.1.1"
 rn2xx3 = "0.2.1"
 stm32l0 = "0.10.0"
-stm32l0xx-hal = { git = "ssh://git@github.com/stm32-rs/stm32l0xx-hal.git", branch = "master", features = ["rt", "mcu-STM32L071KBTx"] }
+#stm32l0xx-hal = { git = "ssh://git@github.com/stm32-rs/stm32l0xx-hal.git", branch = "master", features = ["rt", "mcu-STM32L071KBTx"] }
+stm32l0xx-hal = { git = "ssh://git@github.com/stm32-rs/stm32l0xx-hal.git", branch = "master", features = ["rt", "mcu-STM32L031K6Tx"] }
 shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
