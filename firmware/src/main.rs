@@ -16,7 +16,7 @@ use stm32l0xx_hal::gpio::{
     OpenDrain, Output,
 };
 use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
+use stm32l0xx_hal::{self as hal, i2c::I2c, pac, pwr, rtc, serial, time};
 
 // First party crates
 use gfroerli_common::config::{self, Config};
@@ -77,6 +77,9 @@ const APP: () = {
 
         // Blocking delay provider
         delay: Tim7Delay,
+
+        // Real-time clock
+        rtc: rtc::RTC,
     }
 
     #[init(spawn = [start_measurements], schedule = [disable_leds])]
@@ -101,6 +104,12 @@ const APP: () = {
         // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
         Tim6Monotonic::initialize(dp.TIM6);
+
+        // Get access to PWR peripheral
+        let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
+
+        // Instantiate RTC peripheral
+        let rtc = rtc::RTC::new(dp.RTC, &mut rcc, &pwr, rtc::Instant::new());
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -360,6 +369,7 @@ const APP: () = {
             rn,
             supply_monitor,
             delay,
+            rtc,
         }
     }
 
