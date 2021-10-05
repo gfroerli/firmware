@@ -109,7 +109,7 @@ const APP: () = {
         let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
 
         // Instantiate RTC peripheral
-        let rtc = rtc::RTC::new(dp.RTC, &mut rcc, &pwr, rtc::Instant::new());
+        let mut rtc = rtc::RTC::new(dp.RTC, &mut rcc, &pwr, rtc::Instant::new());
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -154,7 +154,7 @@ const APP: () = {
         // Show versions
         writeln!(
             debug,
-            "Booting: Gfrörli firmware={} hardware={}",
+            "\n🚀 Booting: Gfrörli firmware={} hardware={}",
             FIRMWARE_VERSION,
             hardware_version.detect(),
         )
@@ -209,10 +209,27 @@ const APP: () = {
             Ok(c) => c,
             Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
         };
-        writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+        writeln!(debug, "🔧 Loaded config (v{}) from EEPROM", config.version).unwrap();
         if cfg!(feature = "dev") {
             writeln!(debug, "Config: {:?}", config).unwrap();
         }
+
+        // Measure current time to determine the wakeup cycle
+        let now = rtc.now();
+        writeln!(
+            debug,
+            "📅 Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second()
+        )
+        .unwrap();
+
+        // End of header
+        writeln!(debug).unwrap();
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);
