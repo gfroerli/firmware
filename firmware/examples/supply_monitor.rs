@@ -56,7 +56,15 @@ fn main() -> ! {
 
     loop {
         let v_supply = supply_monitor.read_supply_raw();
-        writeln!(serial, "{:?}", v_supply);
+        if let Some(v) = v_supply {
+            writeln!(serial, "{:?}", v);
+
+            // real ca. 0.7V@3.3V
+            let v_input =  (v as f32) / 4095.0 * 3.3;
+            let v_supply_converted =  (v as f32) / 4095.0 * 3.3 / 2.7 * (10.0 + 2.7);
+
+            writeln!(serial, "{} -> {:?}", v_input, v_supply_converted);
+        }
 
         //serial.write_char('a').unwrap();
 
