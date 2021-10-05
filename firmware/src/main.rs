@@ -563,7 +563,7 @@ mod app {
             if let Some(v_supply_f32) = v_supply
                 .as_ref()
                 .map(U12::as_u16)
-                .map(SupplyMonitor::convert_input)
+                .map(|v| SupplyMonitor::convert_input(v, 3.3))
             {
                 delimit!();
                 write!(ctx.shared.debug, "VDD: {:.3}V", v_supply_f32).unwrap();
