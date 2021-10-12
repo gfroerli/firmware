@@ -46,7 +46,7 @@ fn wait(tim7: &mut pac::TIM7, prescaler: u16, auto_reload_register: u16) {
 
     // Set the auto-reload register to the delay value
     tim7.arr
-        .write(|w| unsafe { w.arr().bits(max(1, auto_reload_register)) });
+        .write(|w| w.arr().bits(max(1, auto_reload_register)));
 
     // Trigger update event (UEV) in the event generation register (EGR)
     // in order to immediately apply the config

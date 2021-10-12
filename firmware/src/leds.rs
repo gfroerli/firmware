@@ -1,26 +1,25 @@
 //! Controlling the status LEDs.
 
-use stm32l0xx_hal::prelude::*;
 use stm32l0xx_hal::{
-    self as hal,
-    gpio::{Output, PushPull},
+    gpio::{Output, Pin, PushPull},
+    prelude::*,
 };
 
 /// Status LEDs.
 pub struct StatusLeds {
     /// Red status LED
-    led_r: hal::gpio::gpiob::PB<Output<PushPull>>,
+    led_r: Pin<Output<PushPull>>,
     /// Yellow status LED
-    led_y: hal::gpio::gpiob::PB<Output<PushPull>>,
+    led_y: Pin<Output<PushPull>>,
     /// Green status LED
-    led_g: hal::gpio::gpioa::PA<Output<PushPull>>,
+    led_g: Pin<Output<PushPull>>,
 }
 
 impl StatusLeds {
     pub fn new(
-        led_r: hal::gpio::gpiob::PB<Output<PushPull>>,
-        led_y: hal::gpio::gpiob::PB<Output<PushPull>>,
-        led_g: hal::gpio::gpioa::PA<Output<PushPull>>,
+        led_r: Pin<Output<PushPull>>,
+        led_y: Pin<Output<PushPull>>,
+        led_g: Pin<Output<PushPull>>,
     ) -> Self {
         Self {
             led_r,

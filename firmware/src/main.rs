@@ -6,6 +6,7 @@
 use core::fmt::Write;
 
 // Third party
+use embedded_time::rate::{Baud, Extensions};
 use one_wire_bus::OneWire;
 use panic_persist as _;
 use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
@@ -15,8 +16,15 @@ use stm32l0xx_hal::gpio::{
     gpioa::{PA10, PA6, PA9},
     OpenDrain, Output,
 };
-use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, i2c::I2c, pac, pwr, rtc, serial, time};
+use stm32l0xx_hal::{
+    self as hal,
+    i2c::I2c,
+    pac,
+    prelude::*,
+    pwr,
+    rtc::{Datelike, Rtc, Timelike},
+    serial,
+};
 
 // First party crates
 use gfroerli_common::config::{self, Config};
@@ -38,7 +46,7 @@ use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
 
-type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
+type I2C1 = I2c<pac::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -50,7 +58,7 @@ struct MeasurementPlan {
 }
 
 #[app(
-    device = stm32l0::stm32l0x1,
+    device = stm32l0xx_hal::pac,
     peripherals = true,
     monotonic = crate::monotonic_stm32l0::Tim6Monotonic,
 )]
@@ -79,7 +87,7 @@ const APP: () = {
         delay: Tim7Delay,
 
         // Real-time clock
-        rtc: rtc::RTC,
+        rtc: Rtc,
     }
 
     #[init(spawn = [start_measurements], schedule = [disable_leds])]
@@ -109,7 +117,7 @@ const APP: () = {
         let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
 
         // Instantiate RTC peripheral
-        let mut rtc = rtc::RTC::new(dp.RTC, &mut rcc, &pwr, rtc::Instant::new());
+        let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, None).unwrap(); // Cannot fail, since no `init` value is passed in
 
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
@@ -121,7 +129,7 @@ const APP: () = {
             gpiob.pb6.into_floating_input(),
             gpiob.pb7.into_floating_input(),
             serial::Config {
-                baudrate: time::Bps(57_600),
+                baudrate: Baud(57_600),
                 wordlength: serial::WordLength::DataBits8,
                 parity: serial::Parity::ParityNone,
                 stopbits: serial::StopBits::STOP1,
@@ -135,7 +143,7 @@ const APP: () = {
             gpioa.pa3.into_floating_input(),
             // Config: See RN2483 datasheet, table 3-1
             serial::Config {
-                baudrate: time::Bps(57_600),
+                baudrate: Baud(57_600),
                 wordlength: serial::WordLength::DataBits8,
                 parity: serial::Parity::ParityNone,
                 stopbits: serial::StopBits::STOP1,
@@ -258,7 +266,7 @@ const APP: () = {
         writeln!(debug, "Initialize I²C peripheral").unwrap();
         let sda = gpioa.pa10.into_open_drain_output();
         let scl = gpioa.pa9.into_open_drain_output();
-        let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
+        let i2c = dp.I2C1.i2c(sda, scl, 10_000.Hz(), &mut rcc);
 
         // Initialize SHTC3
         writeln!(debug, "Init SHTC3…").unwrap();
