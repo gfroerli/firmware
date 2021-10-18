@@ -1,6 +1,7 @@
 use embedded_hal::{adc::OneShot, digital::v2::OutputPin};
 use stm32l0xx_hal::{
     adc::{self, Adc, Align, VRef},
+    calibration::VrefintCal,
     gpio::{gpioa::PA1, Analog, Output, Pin, PushPull},
 };
 
@@ -15,7 +16,8 @@ pub struct SupplyMonitor {
 
 impl SupplyMonitor {
     const ADC_MAX: f32 = 4095.0;
-    const VREFINT_VOLTAGE: f32 = 1.224;
+    /// Voltage at which VREFINT_CAL got calibrated
+    const VREFINT_CAL_VDD: f32 = 3.0;
 
     pub fn new(
         adc_pin: PA1<Analog>,
@@ -61,9 +63,14 @@ impl SupplyMonitor {
         val
     }
 
+    /// Calcultate the VREFINT voltage from the calibrated value which was calibrated at 3.0V VDDA
+    pub fn calculate_vref_int_voltage() -> f32 {
+        Self::VREFINT_CAL_VDD / Self::ADC_MAX * (VrefintCal::get().read() as f32)
+    }
+
     /// Convert the raw VREFINT ADC value to VDDA
     pub fn convert_vrefint_to_vdda(vrefint: u16) -> f32 {
-        Self::ADC_MAX * Self::VREFINT_VOLTAGE / (vrefint as f32)
+        Self::VREFINT_CAL_VDD * (VrefintCal::get().read() as f32) / (vrefint as f32)
     }
 
     /// Read VREFINT and calculate VDDA from it
