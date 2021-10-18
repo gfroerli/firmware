@@ -3,6 +3,7 @@ use embedded_hal::digital::v2::OutputPin;
 use stm32l0xx_hal::adc::{self, Adc, Align, VRef};
 use stm32l0xx_hal::gpio::gpioa::{PA, PA1};
 use stm32l0xx_hal::gpio::{Analog, Output, PushPull};
+use stm32l0xx_hal::calibration::VrefintCal;
 
 use gfroerli_common::measurement::U12;
 
@@ -61,9 +62,18 @@ impl SupplyMonitor {
         val
     }
 
+    /// Calcultate the VREFINT voltage from the calibrated value which was calibrated at 3.0V VDDA
+    pub fn calculate_vref_int_voltage() -> f32 {
+        3.0 / Self::ADC_MAX * (VrefintCal::get().read() as f32)
+    }
+
     /// Convert the raw VREFINT ADC value to VDDA
     pub fn convert_vrefint_to_vdda(vrefint: u16) -> f32 {
-        Self::ADC_MAX * Self::VREFINT_VOLTAGE / (vrefint as f32)
+        let vrefint_voltage = Self::calculate_vref_int_voltage();
+        let vdda = Self::ADC_MAX * vrefint_voltage / (vrefint as f32);
+
+
+        let vdda = 3.0 * (VrefintCal::get().read() as f32) / (vrefint as f32);
     }
 
     /// Read VREFINT and calculate VDDA from it
