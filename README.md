@@ -23,7 +23,9 @@ Requires Rust stable, as specified in the `rust-toolchain` file.
 
 ```Bash
 # Install dependencies
-sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb openocd
+sudo pacman -S arm-none-eabi-binutils arm-none-eabi-gdb
+# For debugging we need JLinkGDBServer
+yay jlink
 
 # Install target
 rustup target add thumbv6m-none-eabi
@@ -41,7 +43,7 @@ To build the firmware:
 
 In one terminal:
 
-    ../openocd.sh
+    JLinkGDBServer -speed 4000 -if SWD -device STM32L071KB -port 3333
 
 In another terminal:
 
