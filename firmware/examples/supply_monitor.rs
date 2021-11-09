@@ -7,6 +7,7 @@ use panic_persist as _;
 use core::fmt::Write;
 
 use cortex_m_rt::entry;
+use hal::{serial, time};
 use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
 
@@ -25,20 +26,32 @@ fn main() -> ! {
     let mut led = gpiob.pb3.into_push_pull_output();
 
     let gpioa = dp.GPIOA.split(&mut rcc);
+    /*
+    // Nucleo serial
     let mut serial = hal::serial::Serial::usart2(
         dp.USART2,
         gpioa.pa2.into_floating_input(),
         gpioa.pa3.into_floating_input(),
-        //gpioa.pa9.into_floating_input(),
-        //gpioa.pa10.into_floating_input(),
-
-        //gpiob.pb6.into_floating_input(),
-        //gpiob.pb7.into_floating_input(),
         hal::serial::Config {
             baudrate: hal::time::Bps(9600),
             wordlength: hal::serial::WordLength::DataBits8,
             parity: hal::serial::Parity::ParityNone,
             stopbits: hal::serial::StopBits::STOP1,
+        },
+        &mut rcc,
+    )
+    .unwrap();
+    */
+
+    let mut serial = hal::serial::Serial::usart1(
+        dp.USART1,
+        gpiob.pb6.into_floating_input(),
+        gpiob.pb7.into_floating_input(),
+        serial::Config {
+            baudrate: time::Bps(57_600),
+            wordlength: serial::WordLength::DataBits8,
+            parity: serial::Parity::ParityNone,
+            stopbits: serial::StopBits::STOP1,
         },
         &mut rcc,
     )
