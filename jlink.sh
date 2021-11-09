@@ -19,7 +19,7 @@ case $1 in
         ;;
     flash)
         objcopy -O ihex "$2" output.hex
-        printf "halt\nloadfile output.hex\nreset\ngo\nexit\n" | JLinkExe -speed 4000 -if SWD -device STM32L071KB
+        printf "halt\nloadfile output.hex\nr0\nr1\nexit\n" | JLinkExe -speed 4000 -if SWD -device STM32L071KB
         ;;
     *)
         echo "Usage: $0 [power-on,power-off,power-cycle,reset,flash ELF_FILE]"
