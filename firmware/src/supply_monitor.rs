@@ -26,7 +26,8 @@ impl SupplyMonitor {
     ) -> Self {
         adc.set_precision(adc::Precision::B_12);
         adc.set_align(Align::Right); // Use 12 least-significant bits to encode data
-        adc.set_sample_time(adc::SampleTime::T_79_5);
+                                     //adc.set_sample_time(adc::SampleTime::T_79_5);
+        adc.set_sample_time(adc::SampleTime::T_160_5);
         SupplyMonitor {
             adc_pin,
             adc,
@@ -34,32 +35,28 @@ impl SupplyMonitor {
         }
     }
 
-    /// Disable the supply voltage monitoring voltage divider
-    fn disable(&mut self) {
+    /// Disable the supply voltage monitoring voltage divider and VREFINT
+    pub fn disable(&mut self) {
         self.enable_pin.set_low().unwrap();
+        VRef.disable(&mut self.adc);
     }
 
-    /// Enable the supply voltage monitoring voltage divider
-    fn enable(&mut self) {
+    /// Enable the supply voltage monitoring voltage divider and VREFINT
+    pub fn enable(&mut self) {
         self.enable_pin.set_high().unwrap();
+        VRef.enable(&mut self.adc);
     }
 
     /// Read the supply voltage ADC channel.
     ///
-    /// `enable` and `disable` the supply voltage monitoring voltage divider
-    /// before and after the measurement.
+    /// Make sure to call `enable` and wait 3ms before the measurement.
     pub fn read_supply_raw(&mut self) -> Option<u16> {
-        self.enable();
-        let val: Option<u16> = self.adc.read(&mut self.adc_pin).ok();
-        self.disable();
-        val
+        self.adc.read(&mut self.adc_pin).ok()
     }
 
     /// Read the VREFINT value
     pub fn read_vref_raw(&mut self) -> Option<u16> {
-        VRef.enable(&mut self.adc);
         let val = self.adc.read(&mut VRef).ok();
-        VRef.disable(&mut self.adc);
         val
     }
 
@@ -94,8 +91,8 @@ impl SupplyMonitor {
 
     /// Convert the raw ADC value to the resulting supply voltage
     pub fn convert_input(input: u16, vdda: f32) -> f32 {
-        const R_1: f32 = 2.7;
-        const R_2: f32 = 10.0;
+        const R_1: f32 = 9.31;
+        const R_2: f32 = 6.04;
         (input as f32) / Self::ADC_MAX * vdda / R_1 * (R_1 + R_2)
     }
 }

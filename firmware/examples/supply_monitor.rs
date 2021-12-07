@@ -26,6 +26,7 @@ fn main() -> ! {
     let mut led = gpiob.pb3.into_push_pull_output();
 
     let gpioa = dp.GPIOA.split(&mut rcc);
+
     /*
     // Nucleo serial
     let mut serial = hal::serial::Serial::usart2(
@@ -67,31 +68,36 @@ fn main() -> ! {
     let mut supply_monitor = supply_monitor::SupplyMonitor::new(a1, adc, adc_enable_pin);
 
     loop {
-        let v_supply = supply_monitor.read_supply_raw();
-        if let Some(v) = v_supply {
-            writeln!(serial, "{}", v);
+        supply_monitor.enable();
+        if let Some(vref_raw) = supply_monitor.read_vref_raw() {
+            let v_input = (vref_raw as f32) / 4095.0 * 3.3;
+            let v_dda = supply_monitor::SupplyMonitor::convert_vrefint_to_vdda(vref_raw);
 
-            // real ca. 0.7V@3.3V
-            let v_input = (v as f32) / 4095.0 * 3.3;
-            let v_supply_converted = (v as f32) / 4095.0 * 3.3 / 2.7 * (10.0 + 2.7);
+            writeln!(
+                serial,
+                "VREF: {} ({}) -> VDDA: {}",
+                vref_raw, v_input, v_dda
+            )
+            .unwrap();
 
-            writeln!(serial, "{} -> {}", v_input, v_supply_converted).unwrap();
+            let v_supply = supply_monitor.read_supply_raw();
+            if let Some(v_supply_raw) = v_supply {
+                // real ca. 0.7V@3.3V
+                let v_input = (v_supply_raw as f32) / 4095.0 * 3.3;
+                let v_supply_converted_old =
+                    supply_monitor::SupplyMonitor::convert_input(v_supply_raw, 3.3);
+                let v_supply_converted =
+                    supply_monitor::SupplyMonitor::convert_input(v_supply_raw, v_dda);
+
+                writeln!(
+                    serial,
+                    "Raw: {} ({}) -> Supply: {} ({} old)",
+                    v_supply_raw, v_input, v_supply_converted, v_supply_converted_old
+                )
+                .unwrap();
+            }
         }
-
-        /*
-        if let Some(v) = supply_monitor.read_vref_raw() {
-            let v_input = (v as f32) / 4095.0 * 3.3;
-            let v_dda = supply_monitor::SupplyMonitor::convert_vrefint_to_vdda(v);
-
-            writeln!(serial, "VDDA: {} ({}) -> {}", v, v_input, v_dda).unwrap();
-        }
-        */
-
-        if let Some(vdd) = supply_monitor.read_supply() {
-            writeln!(serial, "VDD: {:?}", vdd);
-        }
-
-        //serial.write_char('a').unwrap();
+        //supply_monitor.disable();
 
         led.set_high().unwrap();
         delay.delay(hal::time::MicroSeconds(1_000_000));
