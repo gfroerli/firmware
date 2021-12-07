@@ -10,7 +10,7 @@ keywords = ["arm", "cortex-m"]
 categories = ["embedded", "no-std"]
 license = "GPL-3.0"
 repository = "https://github.com/gfroerli/firmware"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 gfroerli-common = { path = "../common" }
