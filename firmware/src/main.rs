@@ -371,7 +371,7 @@ const APP: () = {
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
     #[task(resources = [delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
-    fn start_measurements(mut ctx: start_measurements::Context) {
+    fn start_measurements(ctx: start_measurements::Context) {
         let mut measurement_plan = MeasurementPlan {
             measure_sht: true,
             measure_ds18b20: ctx.resources.ds18b20.is_some(),
@@ -382,7 +382,7 @@ const APP: () = {
             .unwrap_or_else(|_| measurement_plan.measure_sht = false);
         if let Some(ds18b20) = ctx.resources.ds18b20 {
             ds18b20
-                .start_measurement(&mut ctx.resources.one_wire, ctx.resources.delay)
+                .start_measurement(ctx.resources.one_wire, ctx.resources.delay)
                 .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
         }
 
@@ -395,7 +395,7 @@ const APP: () = {
     /// Read measurement results from the sensors. Re-schedule a measurement.
     #[task(resources = [debug, delay, sht, one_wire, ds18b20, supply_monitor, rn], schedule = [start_measurements])]
     fn read_measurement_results(
-        mut ctx: read_measurement_results::Context,
+        ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
     ) {
         static mut COUNTER: usize = 0;
@@ -411,7 +411,7 @@ const APP: () = {
         let ds18b20_measurement = if measurement_plan.measure_ds18b20 {
             ctx.resources.ds18b20.and_then(|ds18b20| {
                 ds18b20
-                    .read_raw_temperature_data(&mut ctx.resources.one_wire, ctx.resources.delay)
+                    .read_raw_temperature_data(ctx.resources.one_wire, ctx.resources.delay)
                     .ok()
             })
         } else {
