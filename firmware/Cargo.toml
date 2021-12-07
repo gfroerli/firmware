@@ -26,6 +26,9 @@ rn2xx3 = "0.2.1"
 stm32l0xx-hal = { version = "0.8.0", features = ["rt", "mcu-STM32L071KBTx", "rtc"] }
 shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 
+[dev-dependencies]
+rstest = "0.11"
+
 [target.'cfg(target_arch = "arm")'.dependencies]
 panic-persist = { version = "0.3.0", features = ["utf8"] }
 

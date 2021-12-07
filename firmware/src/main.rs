@@ -35,6 +35,7 @@ mod delay;
 mod ds18b20;
 mod leds;
 mod monotonic_stm32l0;
+mod rtc;
 mod supply_monitor;
 mod version;
 
@@ -226,13 +227,14 @@ const APP: () = {
         let now = rtc.now();
         writeln!(
             debug,
-            "📅 Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+            "📅 RTC Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02} (Uptime: {}s)",
             now.year(),
             now.month(),
             now.day(),
             now.hour(),
             now.minute(),
-            now.second()
+            now.second(),
+            rtc::datetime_to_uptime(now),
         )
         .unwrap();
 
