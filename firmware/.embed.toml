@@ -17,6 +17,9 @@ enabled = false
 
 # Flash target
 
+[flash.general]
+connect_under_reset = true
+
 [flash.flashing]
 enabled = true
 restore_unwritten_bytes = false
