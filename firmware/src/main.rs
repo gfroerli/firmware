@@ -537,7 +537,7 @@ const APP: () = {
         // Re-schedule a measurement
         // (TODO: Go to sleep here)
         ctx.schedule
-            .start_measurements(ctx.scheduled + 5000.millis())
+            .start_measurements(ctx.scheduled + 4000.millis())
             .unwrap();
     }
 
