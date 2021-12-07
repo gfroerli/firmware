@@ -57,6 +57,8 @@ fn main() -> ! {
     )
     .unwrap();
 
+    writeln!(serial, "Starting supply_monitor example");
+
     // Initialize supply monitor
     let adc = dp.ADC.constrain(&mut rcc);
 
