@@ -53,20 +53,38 @@ const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Copy, Clone)]
 /// Keep track which sensors should be measured
-struct MeasurementPlan {
+pub struct MeasurementPlan {
     measure_sht: bool,
     measure_ds18b20: bool,
+    measure_voltage: bool,
+}
+
+impl MeasurementPlan {
+    fn should_transmit(self) -> bool {
+        self.measure_sht || self.measure_ds18b20 || self.measure_voltage
+    }
+}
+
+fn bool_to_emoji(val: bool) -> &'static str {
+    if val {
+        "✅"
+    } else {
+        "❌"
+    }
 }
 
 #[app(
     device = stm32l0xx_hal::pac,
     peripherals = true,
     monotonic = crate::monotonic_stm32l0::Tim6Monotonic,
-)]
+    )]
 const APP: () = {
     struct Resources {
         // Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
+
+        // Base measurement plan, based purely on wakeup cycle and config
+        base_measurement_plan: MeasurementPlan,
 
         // Status LEDs
         status_leds: StatusLeds,
@@ -227,19 +245,51 @@ const APP: () = {
         let now = rtc.now();
         writeln!(
             debug,
-            "📅 RTC Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02} (Uptime: {}s)",
+            "📅 RTC Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
             now.year(),
             now.month(),
             now.day(),
             now.hour(),
             now.minute(),
             now.second(),
-            rtc::datetime_to_uptime(now),
+        )
+        .unwrap();
+        let uptime = rtc::datetime_to_uptime(now);
+        let wakeup_cycle = uptime / config.wakeup_interval_seconds as u32;
+        writeln!(
+            debug,
+            "⏰ Uptime: {}s / Wakeup Interval: {}s / Wakeup Cycle: {}",
+            uptime,
+            config.wakeup_interval_seconds,
+            wakeup_cycle + 1,
         )
         .unwrap();
 
         // End of header
         writeln!(debug).unwrap();
+
+        // Determine measurement plan
+        let measure_temp_humi = wakeup_cycle % (config.nth_temp_humi as u32) == 0;
+        let measure_voltage = wakeup_cycle % (config.nth_voltage as u32) == 0;
+        let measurement_plan = MeasurementPlan {
+            measure_sht: measure_temp_humi,
+            measure_ds18b20: measure_temp_humi,
+            measure_voltage,
+        };
+        writeln!(
+            debug,
+            "Config:\n  nth_temp_humi = {}\n  nth_voltage = {}",
+            config.nth_temp_humi, config.nth_voltage,
+        )
+        .unwrap();
+        writeln!(
+            debug,
+            "Base measurement plan:\n  {} SHT\n  {} DS18B20\n  {} VCC\n",
+            bool_to_emoji(measurement_plan.measure_sht),
+            bool_to_emoji(measurement_plan.measure_ds18b20),
+            bool_to_emoji(measurement_plan.measure_voltage),
+        )
+        .unwrap();
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);
@@ -389,6 +439,7 @@ const APP: () = {
 
         init::LateResources {
             debug,
+            base_measurement_plan: measurement_plan,
             status_leds,
             sht,
             one_wire,
@@ -407,12 +458,9 @@ const APP: () = {
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
-    #[task(resources = [delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
+    #[task(resources = [base_measurement_plan, delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
     fn start_measurements(ctx: start_measurements::Context) {
-        let mut measurement_plan = MeasurementPlan {
-            measure_sht: true,
-            measure_ds18b20: ctx.resources.ds18b20.is_some(),
-        };
+        let mut measurement_plan = *ctx.resources.base_measurement_plan;
         ctx.resources
             .sht
             .start_measurement(PowerMode::NormalMode)
@@ -421,6 +469,8 @@ const APP: () = {
             ds18b20
                 .start_measurement(ctx.resources.one_wire, ctx.resources.delay)
                 .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
+        } else {
+            measurement_plan.measure_ds18b20 = false;
         }
 
         // Schedule reading of the measurement results
@@ -435,8 +485,6 @@ const APP: () = {
         ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
     ) {
-        static mut COUNTER: usize = 0;
-
         // Fetch measurement results
         let sht_measurement = if measurement_plan.measure_sht {
             ctx.resources.sht.get_raw_measurement_result().ok()
@@ -525,8 +573,7 @@ const APP: () = {
         }
         writeln!(ctx.resources.debug).unwrap();
 
-        // For testing, transmit every 30s
-        if *COUNTER % 30 == 0 {
+        if measurement_plan.should_transmit() {
             let fport = 123;
 
             // Encode measurement
@@ -558,7 +605,6 @@ const APP: () = {
                 writeln!(ctx.resources.debug, "Downlink: {:?}", downlink).unwrap();
             }
         }
-        *COUNTER += 1;
 
         // Persist MAC changes
         writeln!(ctx.resources.debug, "RN2483: Calling \"mac save\"").unwrap();
@@ -572,7 +618,9 @@ const APP: () = {
         });
 
         // Re-schedule a measurement
-        // (TODO: Go to sleep here)
+        // (TODO: Go to sleep here. For now, simulate 10s of sleep.)
+        ctx.resources.delay.delay_ms(3000);
+        ctx.resources.delay.delay_ms(3000);
         ctx.schedule
             .start_measurements(ctx.scheduled + 4000.millis())
             .unwrap();
