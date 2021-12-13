@@ -1,19 +1,25 @@
-//! Toggle the serial TX pin. Useful for verifying the delay implementation using a
-//! logic analyzer.
+//! Toggle the serial TX pin. Useful for verifying the delay implementation
+//! using a logic analyzer.
 
 #![no_main]
 #![no_std]
 
 use panic_persist as _;
-use rtic::app;
-use stm32l0xx_hal::{self as hal, pac, prelude::*};
 
-use gfroerli_firmware::delay;
+#[rtic::app(device = stm32l0xx_hal::pac, peripherals = true)]
+mod app {
+    use stm32l0xx_hal::{self as hal, pac, prelude::*};
 
-#[app(device = stm32l0xx_hal::pac, peripherals = true)]
-const APP: () = {
+    use gfroerli_firmware::delay;
+
+    #[shared]
+    struct SharedResources {}
+
+    #[local]
+    struct LocalResources {}
+
     #[init]
-    fn init(ctx: init::Context) {
+    fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
         let mut dp: pac::Peripherals = ctx.device;
 
         // Delay provider
@@ -45,5 +51,7 @@ const APP: () = {
             pin.set_high().unwrap();
             delay.delay_ms(i);
         }
+
+        (SharedResources {}, LocalResources {}, init::Monotonics())
     }
-};
+}

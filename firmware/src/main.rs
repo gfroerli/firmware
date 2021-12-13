@@ -2,34 +2,6 @@
 #![no_std]
 #![cfg(target_arch = "arm")]
 
-// Libcore
-use core::fmt::Write;
-
-// Third party
-use embedded_time::rate::{Baud, Extensions};
-use one_wire_bus::OneWire;
-use panic_persist as _;
-use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
-use rtic::app;
-use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
-use stm32l0xx_hal::gpio::{
-    gpioa::{PA10, PA6, PA9},
-    OpenDrain, Output,
-};
-use stm32l0xx_hal::{
-    self as hal,
-    i2c::I2c,
-    pac,
-    prelude::*,
-    pwr,
-    rtc::{Datelike, Rtc, Timelike},
-    serial,
-};
-
-// First party crates
-use gfroerli_common::config::{self, Config};
-use gfroerli_common::measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12};
-
 // Modules
 mod delay;
 mod ds18b20;
@@ -39,32 +11,9 @@ mod rtc;
 mod supply_monitor;
 mod version;
 
-// Crate-internal
-use delay::Tim7Delay;
-use ds18b20::Ds18b20;
-use leds::StatusLeds;
-use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
-use supply_monitor::SupplyMonitor;
-use version::HardwareVersionDetector;
-
-type I2C1 = I2c<pac::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
-
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Debug, Copy, Clone)]
-/// Keep track which sensors should be measured
-pub struct MeasurementPlan {
-    measure_sht: bool,
-    measure_ds18b20: bool,
-    measure_voltage: bool,
-}
-
-impl MeasurementPlan {
-    fn should_transmit(self) -> bool {
-        self.measure_sht || self.measure_ds18b20 || self.measure_voltage
-    }
-}
-
+/// Helper to convert a boolean to a static emoji. Used when logging.
 fn bool_to_emoji(val: bool) -> &'static str {
     if val {
         "✅"
@@ -73,49 +22,116 @@ fn bool_to_emoji(val: bool) -> &'static str {
     }
 }
 
-#[app(
+#[rtic::app(
     device = stm32l0xx_hal::pac,
     peripherals = true,
-    monotonic = crate::monotonic_stm32l0::Tim6Monotonic,
-    )]
-const APP: () = {
-    struct Resources {
+    dispatchers = [SPI1, SPI2],
+)]
+mod app {
+    // Libcore
+    use core::fmt::Write;
+
+    // Third party
+    use embedded_time::rate::{Baud, Extensions};
+    use one_wire_bus::OneWire;
+    use panic_persist as _;
+    use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
+    use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
+    use stm32l0xx_hal::gpio::{
+        gpioa::{PA10, PA6, PA9},
+        OpenDrain, Output,
+    };
+    use stm32l0xx_hal::{
+        self as hal,
+        i2c::I2c,
+        pac,
+        prelude::*,
+        pwr,
+        rtc::{Datelike, Rtc, Timelike},
+        serial,
+    };
+
+    // First party crates
+    use gfroerli_common::{
+        config::{self, Config},
+        measurement::{EncodedMeasurement, MeasurementMessage, MAX_MSG_LEN, U12},
+    };
+
+    // Crate-internal
+    use crate::{
+        bool_to_emoji,
+        delay::Tim7Delay,
+        ds18b20::Ds18b20,
+        leds::StatusLeds,
+        monotonic_stm32l0::{Tim6Monotonic, U16Ext},
+        supply_monitor::SupplyMonitor,
+        version::HardwareVersionDetector,
+    };
+
+    /// Type alias for I2C1
+    type I2C1 = I2c<pac::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
+
+    #[derive(Debug, Copy, Clone)]
+    /// Keep track which sensors should be measured
+    pub struct MeasurementPlan {
+        measure_sht: bool,
+        measure_ds18b20: bool,
+        measure_voltage: bool,
+    }
+
+    impl MeasurementPlan {
+        fn should_transmit(self) -> bool {
+            self.measure_sht || self.measure_ds18b20 || self.measure_voltage
+        }
+    }
+
+    #[monotonic(binds = TIM6, default = true)]
+    type MainMonotonic = Tim6Monotonic;
+
+    #[shared]
+    struct SharedResources {
         // Serial debug output
+        #[lock_free]
         debug: hal::serial::Serial<pac::USART1>,
 
-        // Base measurement plan, based purely on wakeup cycle and config
-        base_measurement_plan: MeasurementPlan,
-
         // Status LEDs
+        #[lock_free]
         status_leds: StatusLeds,
 
         // SHT temperature/humidity sensor
+        #[lock_free]
         sht: ShtC3<I2C1>,
 
         // DS18B20 water temperature sensor
+        #[lock_free]
         one_wire: OneWire<PA6<Output<OpenDrain>>>,
+        #[lock_free]
         ds18b20: Option<Ds18b20>,
 
-        // RN2483
-        rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
+        // Blocking delay provider
+        #[lock_free]
+        delay: Tim7Delay,
+    }
+
+    #[local]
+    struct LocalResources {
+        // Base measurement plan, based purely on wakeup cycle and config
+        base_measurement_plan: MeasurementPlan,
 
         // Supply voltage monitor
         supply_monitor: SupplyMonitor,
 
-        // Blocking delay provider
-        delay: Tim7Delay,
-
-        // Real-time clock
-        rtc: Rtc,
+        // RN2483
+        rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
     }
 
-    #[init(spawn = [start_measurements], schedule = [disable_leds])]
-    fn init(ctx: init::Context) -> init::LateResources {
-        let _p: rtic::Peripherals = ctx.core;
+    #[init]
+    fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
+        let _p: cortex_m::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
 
         // Init delay timer
-        let mut delay = delay::Tim7Delay::new(dp.TIM7, &mut dp.RCC);
+        let mut delay = Tim7Delay::new(dp.TIM7, &mut dp.RCC);
 
         // Clock configuration. Use HSI at 16 MHz.
         let mut rcc = dp.RCC.freeze(hal::rcc::Config::hsi16());
@@ -130,7 +146,7 @@ const APP: () = {
 
         // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
         // consumption than TIM2/3 or TIM21/22.
-        Tim6Monotonic::initialize(dp.TIM6);
+        let tim6monotonic = Tim6Monotonic::init(dp.TIM6);
 
         // Get access to PWR peripheral
         let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
@@ -182,7 +198,7 @@ const APP: () = {
         writeln!(
             debug,
             "\n🚀 Booting: Gfrörli firmware={} hardware={}",
-            FIRMWARE_VERSION,
+            crate::FIRMWARE_VERSION,
             hardware_version.detect(),
         )
         .unwrap();
@@ -254,7 +270,7 @@ const APP: () = {
             now.second(),
         )
         .unwrap();
-        let uptime = rtc::datetime_to_uptime(now);
+        let uptime = crate::rtc::datetime_to_uptime(now);
         let wakeup_cycle = uptime / config.wakeup_interval_seconds as u32;
         writeln!(
             debug,
@@ -417,86 +433,82 @@ const APP: () = {
             Ok(()) => {
                 writeln!(debug, "RN2483: Join successful").unwrap();
                 status_leds.enable_green();
-                ctx.schedule
-                    .disable_leds(Instant::now() + 100.millis())
-                    .ok()
-                    .unwrap();
+                disable_leds::spawn_after(100.millis()).unwrap();
             }
             Err(e) => {
                 writeln!(debug, "RN2483: Join failed: {:?}", e).unwrap();
                 status_leds.enable_red();
-                ctx.schedule
-                    .disable_leds(Instant::now() + 1000.millis())
-                    .ok()
-                    .unwrap();
+                disable_leds::spawn_after(1000.millis()).unwrap();
             }
         }
 
         // Spawn tasks
-        ctx.spawn.start_measurements().unwrap();
+        start_measurements::spawn().unwrap();
 
         writeln!(debug, "Initialization done").unwrap();
 
-        init::LateResources {
-            debug,
-            base_measurement_plan: measurement_plan,
-            status_leds,
-            sht,
-            one_wire,
-            ds18b20,
-            rn,
-            supply_monitor,
-            delay,
-            rtc,
-        }
+        (
+            SharedResources {
+                debug,
+                status_leds,
+                sht,
+                one_wire,
+                ds18b20,
+                delay,
+            },
+            LocalResources {
+                base_measurement_plan: measurement_plan,
+                supply_monitor,
+                rn,
+            },
+            init::Monotonics(tim6monotonic),
+        )
     }
 
     /// Disable all LEDs.
-    #[task(resources = [status_leds], capacity = 2, priority = 2)]
+    #[task(shared = [status_leds], capacity = 2, priority = 2)]
     fn disable_leds(ctx: disable_leds::Context) {
-        ctx.resources.status_leds.disable_all();
+        ctx.shared.status_leds.disable_all();
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
-    #[task(resources = [base_measurement_plan, delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
+    #[task(local = [base_measurement_plan], shared = [delay, sht, one_wire, ds18b20])]
     fn start_measurements(ctx: start_measurements::Context) {
-        let mut measurement_plan = *ctx.resources.base_measurement_plan;
-        ctx.resources
+        let mut measurement_plan = *ctx.local.base_measurement_plan;
+        ctx.shared
             .sht
             .start_measurement(PowerMode::NormalMode)
             .unwrap_or_else(|_| measurement_plan.measure_sht = false);
-        if let Some(ds18b20) = ctx.resources.ds18b20 {
+        if let Some(ds18b20) = ctx.shared.ds18b20 {
             ds18b20
-                .start_measurement(ctx.resources.one_wire, ctx.resources.delay)
+                .start_measurement(ctx.shared.one_wire, ctx.shared.delay)
                 .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
         } else {
             measurement_plan.measure_ds18b20 = false;
         }
 
         // Schedule reading of the measurement results
-        ctx.schedule
-            .read_measurement_results(Instant::now() + 500.millis(), measurement_plan)
-            .unwrap();
+        read_measurement_results::spawn_after(500.millis(), measurement_plan).unwrap();
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
-    #[task(resources = [debug, delay, sht, one_wire, ds18b20, supply_monitor, rn], schedule = [start_measurements])]
+    #[task(local = [supply_monitor, rn], shared = [debug, delay, sht, one_wire, ds18b20])]
     fn read_measurement_results(
         ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
     ) {
         // Fetch measurement results
         let sht_measurement = if measurement_plan.measure_sht {
-            ctx.resources.sht.get_raw_measurement_result().ok()
+            ctx.shared.sht.get_raw_measurement_result().ok()
         } else {
             None
         };
         let shtc3_temperature = sht_measurement.as_ref().map(|v| v.temperature);
         let shtc3_humidity = sht_measurement.as_ref().map(|v| v.humidity);
         let ds18b20_measurement = if measurement_plan.measure_ds18b20 {
-            ctx.resources.ds18b20.and_then(|ds18b20| {
+            ctx.shared.ds18b20.and_then(|ds18b20| {
                 ds18b20
-                    .read_raw_temperature_data(ctx.resources.one_wire, ctx.resources.delay)
+                    .read_raw_temperature_data(ctx.shared.one_wire, ctx.shared.delay)
                     .ok()
             })
         } else {
@@ -504,7 +516,7 @@ const APP: () = {
         };
 
         // Measure current supply voltage
-        let v_supply = ctx.resources.supply_monitor.read_supply_raw_u12();
+        let v_supply = ctx.local.supply_monitor.read_supply_raw_u12();
 
         // Print results
         let mut first = true;
@@ -513,7 +525,7 @@ const APP: () = {
                 #[allow(unused_assignments)]
                 // https://github.com/rust-lang/rust/issues/85774#issuecomment-857105289
                 if !first {
-                    write!(ctx.resources.debug, " | ").unwrap();
+                    write!(ctx.shared.debug, " | ").unwrap();
                 } else {
                     first = false;
                 }
@@ -526,7 +538,7 @@ const APP: () = {
             if let Some(ds18b20) = ds18b20_measurement {
                 delimit!();
                 write!(
-                    ctx.resources.debug,
+                    ctx.shared.debug,
                     "DS18B20: {:.2}°C (0x{:04x})",
                     (ds18b20 as f32) / 16.0,
                     ds18b20,
@@ -536,7 +548,7 @@ const APP: () = {
             if let Some(sht) = sht_measurement {
                 delimit!();
                 write!(
-                    ctx.resources.debug,
+                    ctx.shared.debug,
                     "SHTC3: {:.2}°C, {:.2}%RH",
                     Temperature::from_raw(sht.temperature).as_degrees_celsius(),
                     Humidity::from_raw(sht.humidity).as_percent(),
@@ -549,18 +561,18 @@ const APP: () = {
                 .map(SupplyMonitor::convert_input)
             {
                 delimit!();
-                write!(ctx.resources.debug, "VDD: {:.3}V", v_supply_f32).unwrap();
+                write!(ctx.shared.debug, "VDD: {:.3}V", v_supply_f32).unwrap();
             }
         } else {
             // Production mode, print raw values directly
             if let Some(ds18b20) = ds18b20_measurement {
                 delimit!();
-                write!(ctx.resources.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
+                write!(ctx.shared.debug, "DS18B20: 0x{:04x}", ds18b20).unwrap();
             }
             if let Some(sht) = sht_measurement {
                 delimit!();
                 write!(
-                    ctx.resources.debug,
+                    ctx.shared.debug,
                     "SHTC3: 0x{:04x}, 0x{:04x}",
                     sht.temperature, sht.humidity
                 )
@@ -568,10 +580,10 @@ const APP: () = {
             }
             if let Some(v_supply_u12) = v_supply {
                 delimit!();
-                write!(ctx.resources.debug, "VDD: 0x{:04x}", v_supply_u12.as_u16(),).unwrap();
+                write!(ctx.shared.debug, "VDD: 0x{:04x}", v_supply_u12.as_u16(),).unwrap();
             }
         }
-        writeln!(ctx.resources.debug).unwrap();
+        writeln!(ctx.shared.debug).unwrap();
 
         if measurement_plan.should_transmit() {
             let fport = 123;
@@ -587,50 +599,35 @@ const APP: () = {
             let length = message.encode(&mut buf);
 
             // Transmit
-            writeln!(ctx.resources.debug, "📣 Transmitting measurement...").unwrap();
-            let tx_result = ctx.resources.rn.transmit_slice(
+            writeln!(ctx.shared.debug, "📣 Transmitting measurement...").unwrap();
+            let tx_result = ctx.local.rn.transmit_slice(
                 ConfirmationMode::Unconfirmed,
                 fport,
                 &buf.0[0..length],
             );
             if let Err(e) = &tx_result {
                 writeln!(
-                    ctx.resources.debug,
+                    ctx.shared.debug,
                     "Error: Transmitting LoRaWAN package failed: {:?}",
                     e
                 )
                 .unwrap();
             }
             if let Ok(Some(downlink)) = tx_result {
-                writeln!(ctx.resources.debug, "Downlink: {:?}", downlink).unwrap();
+                writeln!(ctx.shared.debug, "Downlink: {:?}", downlink).unwrap();
             }
         }
 
         // Persist MAC changes
-        writeln!(ctx.resources.debug, "RN2483: Calling \"mac save\"").unwrap();
-        ctx.resources.rn.save_config().unwrap_or_else(|e| {
-            writeln!(
-                ctx.resources.debug,
-                "RN2483: Could not save config: {:?}",
-                e
-            )
-            .unwrap();
+        writeln!(ctx.shared.debug, "RN2483: Calling \"mac save\"").unwrap();
+        ctx.local.rn.save_config().unwrap_or_else(|e| {
+            writeln!(ctx.shared.debug, "RN2483: Could not save config: {:?}", e).unwrap();
         });
 
         // Re-schedule a measurement
         // (TODO: Go to sleep here. For now, simulate 10s of sleep.)
-        ctx.resources.delay.delay_ms(3000);
-        ctx.resources.delay.delay_ms(3000);
-        ctx.schedule
-            .start_measurements(ctx.scheduled + 4000.millis())
-            .unwrap();
+        ctx.shared.delay.delay_ms(3000);
+        ctx.shared.delay.delay_ms(3000);
+        start_measurements::spawn_after(4000.millis()).unwrap();
     }
-
-    // RTIC requires that free interrupts are declared in an extern block when
-    // using software tasks; these free interrupts will be used to dispatch the
-    // software tasks.
-    extern "C" {
-        fn SPI1();
-        fn SPI2();
-    }
-};
+}

@@ -1,7 +1,5 @@
 //! Using STM32L0 TIM6 as monotonic 16 bit timer.
 //!
-//! https://github.com/rtic-rs/rtic-examples/tree/master/rtic_v5/monotonic_stm32l0
-//!
 //! ## Prescaler Calculations
 //!
 //! This implementation assumes that the core clock is set to 16 MHz (see
@@ -15,11 +13,10 @@
 //! half of the available timer range, meaning that we can safely schedule
 //! tasks 4.096 seconds into the future, with a resolution of 125 µs.
 
-use core::u32;
 use core::{
     cmp::Ordering,
     convert::{Infallible, TryInto},
-    fmt, ops,
+    fmt, ops, u32,
 };
 use rtic::Monotonic;
 use stm32l0xx_hal::pac;
@@ -39,7 +36,7 @@ const HZ: u32 = CORE_CLOCK / PRESCALER;
 
 impl Tim6Monotonic {
     /// Initialize the timer instance.
-    pub fn initialize(timer: pac::TIM6) {
+    pub fn init(timer: pac::TIM6) -> Self {
         // Enable and reset TIM6 in RCC
         //
         // Correctness: Since we only modify TIM6 related registers in the RCC
@@ -63,39 +60,48 @@ impl Tim6Monotonic {
 
         // Explicitly drop timer instance so it cannot be reused or reconfigured
         drop(timer);
+
+        Tim6Monotonic
     }
 }
 
 impl Monotonic for Tim6Monotonic {
     type Instant = Instant;
+    type Duration = Duration;
 
-    fn ratio() -> rtic::Fraction {
-        // monotonic * fraction = sys clock
-        rtic::Fraction {
-            numerator: PRESCALER,
-            denominator: 1,
-        }
-    }
+    /// For now, do not allow RTIC to disable the interrupt when the queue is
+    /// empty. It's an optimization option for the future though.
+    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = true;
 
-    /// Returns the current time
-    ///
-    /// # Correctness
-    ///
-    /// This function is *allowed* to return nonsensical values if called before `reset` is invoked
-    /// by the runtime. Therefore application authors should *not* call this function during the
-    /// `#[init]` phase.
-    fn now() -> Self::Instant {
+    /// Return the current time.
+    fn now(&mut self) -> Self::Instant {
         Instant::now()
     }
 
-    /// Resets the counter to *zero*
+    /// Set the compare value of the timer interrupt.
+    fn set_compare(&mut self, _instant: Self::Instant) {
+        todo!("Called set_compare");
+    }
+
+    /// Clear the compare interrupt flag.
+    fn clear_compare_flag(&mut self) {
+        todo!("Called clear_compare_flag");
+    }
+
+    /// The time at time zero. Used by RTIC before the monotonic has been initialized.
+    fn zero() -> Self::Instant {
+        Instant { inner: 0 }
+    }
+
+    /// Optionally resets the counter to zero for a fixed baseline in a system.
     ///
-    /// # Safety
+    /// This method will be called exactly once by the RTIC runtime after
+    /// `#[init]` returns and before tasks start.
     ///
-    /// This function will be called *exactly once* by the RTFM runtime after `#[init]` returns and
-    /// before tasks can start; this is also the case in multi-core applications. User code must
-    /// *never* call this function.
-    unsafe fn reset() {
+    /// # Correctness
+    ///
+    /// The user may not call this method.
+    unsafe fn reset(&mut self) {
         let tim = &*pac::TIM6::ptr();
 
         // Pause
@@ -104,10 +110,6 @@ impl Monotonic for Tim6Monotonic {
         tim.cnt.reset();
         // Continue
         tim.cr1.modify(|_, w| w.cen().set_bit());
-    }
-
-    fn zero() -> Self::Instant {
-        Instant { inner: 0 }
     }
 }
 
