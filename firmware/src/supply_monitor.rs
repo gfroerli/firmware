@@ -1,8 +1,8 @@
-use embedded_hal::adc::OneShot;
-use embedded_hal::digital::v2::OutputPin;
-use stm32l0xx_hal::adc::{self, Adc, Align};
-use stm32l0xx_hal::gpio::gpioa::{PA, PA1};
-use stm32l0xx_hal::gpio::{Analog, Output, PushPull};
+use embedded_hal::{adc::OneShot, digital::v2::OutputPin};
+use stm32l0xx_hal::{
+    adc::{self, Adc, Align},
+    gpio::{gpioa::PA1, Analog, Output, Pin, PushPull},
+};
 
 use gfroerli_common::measurement::U12;
 
@@ -10,14 +10,14 @@ use gfroerli_common::measurement::U12;
 pub struct SupplyMonitor {
     adc_pin: PA1<Analog>,
     adc: Adc<adc::Ready>,
-    enable_pin: PA<Output<PushPull>>,
+    enable_pin: Pin<Output<PushPull>>,
 }
 
 impl SupplyMonitor {
     pub fn new(
         adc_pin: PA1<Analog>,
         mut adc: Adc<adc::Ready>,
-        enable_pin: PA<Output<PushPull>>,
+        enable_pin: Pin<Output<PushPull>>,
     ) -> Self {
         adc.set_precision(adc::Precision::B_12);
         adc.set_align(Align::Right); // Use 12 least-significant bits to encode data

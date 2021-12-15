@@ -6,6 +6,7 @@
 use core::fmt::Write;
 
 // Third party
+use embedded_time::rate::{Baud, Extensions};
 use one_wire_bus::OneWire;
 use panic_persist as _;
 use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
@@ -15,8 +16,15 @@ use stm32l0xx_hal::gpio::{
     gpioa::{PA10, PA6, PA9},
     OpenDrain, Output,
 };
-use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, i2c::I2c, pac, serial, time};
+use stm32l0xx_hal::{
+    self as hal,
+    i2c::I2c,
+    pac,
+    prelude::*,
+    pwr,
+    rtc::{Datelike, Rtc, Timelike},
+    serial,
+};
 
 // First party crates
 use gfroerli_common::config::{self, Config};
@@ -27,6 +35,7 @@ mod delay;
 mod ds18b20;
 mod leds;
 mod monotonic_stm32l0;
+mod rtc;
 mod supply_monitor;
 mod version;
 
@@ -38,26 +47,44 @@ use monotonic_stm32l0::{Instant, Tim6Monotonic, U16Ext};
 use supply_monitor::SupplyMonitor;
 use version::HardwareVersionDetector;
 
-type I2C1 = I2c<stm32l0::stm32l0x1::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
+type I2C1 = I2c<pac::I2C1, PA10<Output<OpenDrain>>, PA9<Output<OpenDrain>>>;
 
 const FIRMWARE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Copy, Clone)]
 /// Keep track which sensors should be measured
-struct MeasurementPlan {
+pub struct MeasurementPlan {
     measure_sht: bool,
     measure_ds18b20: bool,
+    measure_voltage: bool,
+}
+
+impl MeasurementPlan {
+    fn should_transmit(self) -> bool {
+        self.measure_sht || self.measure_ds18b20 || self.measure_voltage
+    }
+}
+
+fn bool_to_emoji(val: bool) -> &'static str {
+    if val {
+        "✅"
+    } else {
+        "❌"
+    }
 }
 
 #[app(
-    device = stm32l0::stm32l0x1,
+    device = stm32l0xx_hal::pac,
     peripherals = true,
     monotonic = crate::monotonic_stm32l0::Tim6Monotonic,
-)]
+    )]
 const APP: () = {
     struct Resources {
         // Serial debug output
         debug: hal::serial::Serial<pac::USART1>,
+
+        // Base measurement plan, based purely on wakeup cycle and config
+        base_measurement_plan: MeasurementPlan,
 
         // Status LEDs
         status_leds: StatusLeds,
@@ -77,6 +104,9 @@ const APP: () = {
 
         // Blocking delay provider
         delay: Tim7Delay,
+
+        // Real-time clock
+        rtc: Rtc,
     }
 
     #[init(spawn = [start_measurements], schedule = [disable_leds])]
@@ -102,6 +132,12 @@ const APP: () = {
         // consumption than TIM2/3 or TIM21/22.
         Tim6Monotonic::initialize(dp.TIM6);
 
+        // Get access to PWR peripheral
+        let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
+
+        // Instantiate RTC peripheral
+        let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, None).unwrap(); // Cannot fail, since no `init` value is passed in
+
         // Get access to GPIOs
         let gpioa = dp.GPIOA.split(&mut rcc);
         let gpiob = dp.GPIOB.split(&mut rcc);
@@ -112,7 +148,7 @@ const APP: () = {
             gpiob.pb6.into_floating_input(),
             gpiob.pb7.into_floating_input(),
             serial::Config {
-                baudrate: time::Bps(57_600),
+                baudrate: Baud(57_600),
                 wordlength: serial::WordLength::DataBits8,
                 parity: serial::Parity::ParityNone,
                 stopbits: serial::StopBits::STOP1,
@@ -126,7 +162,7 @@ const APP: () = {
             gpioa.pa3.into_floating_input(),
             // Config: See RN2483 datasheet, table 3-1
             serial::Config {
-                baudrate: time::Bps(57_600),
+                baudrate: Baud(57_600),
                 wordlength: serial::WordLength::DataBits8,
                 parity: serial::Parity::ParityNone,
                 stopbits: serial::StopBits::STOP1,
@@ -145,7 +181,7 @@ const APP: () = {
         // Show versions
         writeln!(
             debug,
-            "Booting: Gfrörli firmware={} hardware={}",
+            "\n🚀 Booting: Gfrörli firmware={} hardware={}",
             FIRMWARE_VERSION,
             hardware_version.detect(),
         )
@@ -200,10 +236,60 @@ const APP: () = {
             Ok(c) => c,
             Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
         };
-        writeln!(debug, "Loaded config (v{}) from EEPROM", config.version).unwrap();
+        writeln!(debug, "🔧 Loaded config (v{}) from EEPROM", config.version).unwrap();
         if cfg!(feature = "dev") {
             writeln!(debug, "Config: {:?}", config).unwrap();
         }
+
+        // Measure current time to determine the wakeup cycle
+        let now = rtc.now();
+        writeln!(
+            debug,
+            "📅 RTC Date: {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second(),
+        )
+        .unwrap();
+        let uptime = rtc::datetime_to_uptime(now);
+        let wakeup_cycle = uptime / config.wakeup_interval_seconds as u32;
+        writeln!(
+            debug,
+            "⏰ Uptime: {}s / Wakeup Interval: {}s / Wakeup Cycle: {}",
+            uptime,
+            config.wakeup_interval_seconds,
+            wakeup_cycle + 1,
+        )
+        .unwrap();
+
+        // End of header
+        writeln!(debug).unwrap();
+
+        // Determine measurement plan
+        let measure_temp_humi = wakeup_cycle % (config.nth_temp_humi as u32) == 0;
+        let measure_voltage = wakeup_cycle % (config.nth_voltage as u32) == 0;
+        let measurement_plan = MeasurementPlan {
+            measure_sht: measure_temp_humi,
+            measure_ds18b20: measure_temp_humi,
+            measure_voltage,
+        };
+        writeln!(
+            debug,
+            "Config:\n  nth_temp_humi = {}\n  nth_voltage = {}",
+            config.nth_temp_humi, config.nth_voltage,
+        )
+        .unwrap();
+        writeln!(
+            debug,
+            "Base measurement plan:\n  {} SHT\n  {} DS18B20\n  {} VCC\n",
+            bool_to_emoji(measurement_plan.measure_sht),
+            bool_to_emoji(measurement_plan.measure_ds18b20),
+            bool_to_emoji(measurement_plan.measure_voltage),
+        )
+        .unwrap();
 
         // Initialize supply monitor
         let adc = dp.ADC.constrain(&mut rcc);
@@ -232,7 +318,7 @@ const APP: () = {
         writeln!(debug, "Initialize I²C peripheral").unwrap();
         let sda = gpioa.pa10.into_open_drain_output();
         let scl = gpioa.pa9.into_open_drain_output();
-        let i2c = dp.I2C1.i2c(sda, scl, 10.khz(), &mut rcc);
+        let i2c = dp.I2C1.i2c(sda, scl, 10_000.Hz(), &mut rcc);
 
         // Initialize SHTC3
         writeln!(debug, "Init SHTC3…").unwrap();
@@ -353,6 +439,7 @@ const APP: () = {
 
         init::LateResources {
             debug,
+            base_measurement_plan: measurement_plan,
             status_leds,
             sht,
             one_wire,
@@ -360,6 +447,7 @@ const APP: () = {
             rn,
             supply_monitor,
             delay,
+            rtc,
         }
     }
 
@@ -370,12 +458,9 @@ const APP: () = {
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
-    #[task(resources = [delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
+    #[task(resources = [base_measurement_plan, delay, sht, one_wire, ds18b20], schedule = [read_measurement_results])]
     fn start_measurements(ctx: start_measurements::Context) {
-        let mut measurement_plan = MeasurementPlan {
-            measure_sht: true,
-            measure_ds18b20: ctx.resources.ds18b20.is_some(),
-        };
+        let mut measurement_plan = *ctx.resources.base_measurement_plan;
         ctx.resources
             .sht
             .start_measurement(PowerMode::NormalMode)
@@ -384,6 +469,8 @@ const APP: () = {
             ds18b20
                 .start_measurement(ctx.resources.one_wire, ctx.resources.delay)
                 .unwrap_or_else(|_| measurement_plan.measure_ds18b20 = false);
+        } else {
+            measurement_plan.measure_ds18b20 = false;
         }
 
         // Schedule reading of the measurement results
@@ -398,8 +485,6 @@ const APP: () = {
         ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
     ) {
-        static mut COUNTER: usize = 0;
-
         // Fetch measurement results
         let sht_measurement = if measurement_plan.measure_sht {
             ctx.resources.sht.get_raw_measurement_result().ok()
@@ -488,8 +573,7 @@ const APP: () = {
         }
         writeln!(ctx.resources.debug).unwrap();
 
-        // For testing, transmit every 30s
-        if *COUNTER % 30 == 0 {
+        if measurement_plan.should_transmit() {
             let fport = 123;
 
             // Encode measurement
@@ -521,7 +605,6 @@ const APP: () = {
                 writeln!(ctx.resources.debug, "Downlink: {:?}", downlink).unwrap();
             }
         }
-        *COUNTER += 1;
 
         // Persist MAC changes
         writeln!(ctx.resources.debug, "RN2483: Calling \"mac save\"").unwrap();
@@ -535,7 +618,9 @@ const APP: () = {
         });
 
         // Re-schedule a measurement
-        // (TODO: Go to sleep here)
+        // (TODO: Go to sleep here. For now, simulate 10s of sleep.)
+        ctx.resources.delay.delay_ms(3000);
+        ctx.resources.delay.delay_ms(3000);
         ctx.schedule
             .start_measurements(ctx.scheduled + 4000.millis())
             .unwrap();

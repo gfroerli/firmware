@@ -6,12 +6,11 @@
 
 use panic_persist as _;
 use rtic::app;
-use stm32l0xx_hal::prelude::*;
-use stm32l0xx_hal::{self as hal, pac};
+use stm32l0xx_hal::{self as hal, pac, prelude::*};
 
 use gfroerli_firmware::delay;
 
-#[app(device = stm32l0::stm32l0x1, peripherals = true)]
+#[app(device = stm32l0xx_hal::pac, peripherals = true)]
 const APP: () = {
     #[init]
     fn init(ctx: init::Context) {
