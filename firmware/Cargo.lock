@@ -208,6 +208,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fugit"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a100ebf2aadd97481fce0b1265ea470460578ac5441fd9d624e8170753f51a9f"
+
+[[package]]
 name = "gfroerli-common"
 version = "0.1.0"
 dependencies = [
@@ -224,6 +230,7 @@ dependencies = [
  "cortex-m-rtic",
  "embedded-hal",
  "embedded-time",
+ "fugit",
  "gfroerli-common",
  "one-wire-bus",
  "panic-persist",

@@ -63,7 +63,7 @@ mod app {
         delay::Tim7Delay,
         ds18b20::Ds18b20,
         leds::StatusLeds,
-        monotonic_stm32l0::{Tim6Monotonic, U16Ext},
+        monotonic_stm32l0::{ExtU32, ExtendedLptim},
         supply_monitor::SupplyMonitor,
         version::HardwareVersionDetector,
     };
@@ -85,8 +85,8 @@ mod app {
         }
     }
 
-    #[monotonic(binds = TIM6, default = true)]
-    type MainMonotonic = Tim6Monotonic;
+    #[monotonic(binds = LPTIM1, default = true)]
+    type MainMonotonic = ExtendedLptim<pac::LPTIM>;
 
     #[shared]
     struct SharedResources {
@@ -144,9 +144,8 @@ mod app {
         //    hal::rcc::Config::msi(hal::rcc::MSIRange::Range5) // ~2.097 MHz
         //);
 
-        // Initialize monotonic timer TIM6. Use TIM6 since it has lower current
-        // consumption than TIM2/3 or TIM21/22.
-        let tim6monotonic = Tim6Monotonic::init(dp.TIM6);
+        // Initialize monotonic timer with LPTIM1
+        let monotonic = ExtendedLptim::init(dp.LPTIM);
 
         // Get access to PWR peripheral
         let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
@@ -461,7 +460,7 @@ mod app {
                 supply_monitor,
                 rn,
             },
-            init::Monotonics(tim6monotonic),
+            init::Monotonics(monotonic),
         )
     }
 
@@ -472,8 +471,9 @@ mod app {
     }
 
     /// Start a measurement for both the SHTCx sensor and the DS18B20 sensor.
-    #[task(local = [base_measurement_plan], shared = [delay, sht, one_wire, ds18b20])]
+    #[task(local = [base_measurement_plan], shared = [debug, delay, sht, one_wire, ds18b20])]
     fn start_measurements(ctx: start_measurements::Context) {
+        writeln!(ctx.shared.debug, "Starting measurements").unwrap();
         let mut measurement_plan = *ctx.local.base_measurement_plan;
         ctx.shared
             .sht
@@ -488,6 +488,11 @@ mod app {
         }
 
         // Schedule reading of the measurement results
+        writeln!(
+            ctx.shared.debug,
+            "Schedule collection of measurement results in 500 ms"
+        )
+        .unwrap();
         read_measurement_results::spawn_after(500.millis(), measurement_plan).unwrap();
     }
 
@@ -626,8 +631,7 @@ mod app {
 
         // Re-schedule a measurement
         // (TODO: Go to sleep here. For now, simulate 10s of sleep.)
-        ctx.shared.delay.delay_ms(3000);
-        ctx.shared.delay.delay_ms(3000);
-        start_measurements::spawn_after(4000.millis()).unwrap();
+        writeln!(ctx.shared.debug, "Schedule new measurement in 10 s").unwrap();
+        start_measurements::spawn_after(10_000.millis()).unwrap();
     }
 }
