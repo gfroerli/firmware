@@ -36,7 +36,7 @@ mod app {
     use one_wire_bus::OneWire;
     use panic_persist as _;
     use rn2xx3::{rn2483_868, ConfirmationMode, DataRateEuCn, Driver as Rn2xx3, Freq868, JoinMode};
-    use shtcx::{shtc3, LowPower, PowerMode, ShtC3};
+    use shtcx::{shtc3, Error as ShtError, LowPower, PowerMode, ShtC3};
     use stm32l0xx_hal::gpio::{
         gpioa::{PA10, PA6, PA9},
         OpenDrain, Output,
@@ -363,6 +363,8 @@ mod app {
         let i2c = dp.I2C1.i2c(sda, scl, 10_000.Hz(), &mut rcc);
 
         // Initialize SHTC3
+        // TODO: Could we save energy if we'd initialize the SHT just before the measurement?
+        // TODO: If no SHT measurement is scheduled, we could avoid initializing the SHT.
         writeln!(debug, "Init SHTC3…").unwrap();
         let mut sht = shtc3(i2c);
         sht.wakeup(&mut delay).unwrap_or_else(|e| {
@@ -531,6 +533,21 @@ mod app {
         } else {
             None
         };
+
+        // Now that we're done collecting measurement results, put sensors to sleep.
+        if let Err(e) = ctx.shared.sht.sleep() {
+            writeln!(
+                ctx.shared.debug,
+                "Could not put SHTC3 to sleep: {}",
+                match e {
+                    ShtError::Crc => "CRC error",
+                    ShtError::I2c(_) => "I2c bus error",
+                }
+            )
+            .unwrap();
+        } else {
+            writeln!(ctx.shared.debug, "SHTC3: Going to sleep").unwrap();
+        }
 
         // Measure current supply voltage
         let v_supply = ctx.local.supply_monitor.read_supply_raw_u12();
