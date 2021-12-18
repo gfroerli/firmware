@@ -414,11 +414,6 @@ mod app {
         // (Note: This assumes that the keys for a device with a specific
         // address do not change. If you want to change the keys, you must also
         // change the device address.)
-        //
-        // TODO: Right now, when unplugging and re-plugging the devboard, often
-        // the dev addr is lost even though it was stored in EEPROM. This would
-        // be bad since we would lose the frame counter. Test whether this
-        // happens on controlled shutdowns (in standby mode) as well.
         let dev_addr = rn.get_dev_addr_slice().unwrap();
         writeln!(
             debug,
