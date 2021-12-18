@@ -29,7 +29,7 @@ fn bool_to_emoji(val: bool) -> &'static str {
 )]
 mod app {
     // Libcore
-    use core::fmt::Write;
+    use core::{fmt::Write, time::Duration};
 
     // Third party
     use embedded_time::rate::{Baud, Extensions};
@@ -47,7 +47,7 @@ mod app {
         pac,
         prelude::*,
         pwr,
-        rtc::{Datelike, Rtc, Timelike},
+        rtc::{Datelike, Interrupts as RtcInterrupts, Rtc, Timelike},
         serial,
     };
 
@@ -94,6 +94,10 @@ mod app {
         #[lock_free]
         debug: hal::serial::Serial<pac::USART1>,
 
+        // Config
+        #[lock_free]
+        config: Config,
+
         // Status LEDs
         #[lock_free]
         status_leds: StatusLeds,
@@ -123,11 +127,17 @@ mod app {
 
         // RN2483
         rn: Rn2xx3<Freq868, hal::serial::Serial<pac::LPUART1>>,
+
+        // Power peripheral, RTC and SCB register, used for putting the device
+        // into standby mode
+        pwr: pwr::PWR,
+        scb: pac::SCB,
+        rtc: Rtc,
     }
 
     #[init]
     fn init(ctx: init::Context) -> (SharedResources, LocalResources, init::Monotonics) {
-        let _p: cortex_m::Peripherals = ctx.core;
+        let cp: cortex_m::Peripherals = ctx.core;
         let mut dp: pac::Peripherals = ctx.device;
 
         // Init delay timer
@@ -147,8 +157,9 @@ mod app {
         // Initialize monotonic timer with LPTIM1
         let monotonic = ExtendedLptim::init(dp.LPTIM);
 
-        // Get access to PWR peripheral
+        // Get access to PWR peripheral and the SCB register
         let pwr = pwr::PWR::new(dp.PWR, &mut rcc);
+        let scb = cp.SCB;
 
         // Instantiate RTC peripheral
         let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, None).unwrap(); // Cannot fail, since no `init` value is passed in
@@ -463,6 +474,7 @@ mod app {
         (
             SharedResources {
                 debug,
+                config,
                 status_leds,
                 sht,
                 one_wire,
@@ -473,6 +485,9 @@ mod app {
                 base_measurement_plan: measurement_plan,
                 supply_monitor,
                 rn,
+                pwr,
+                scb,
+                rtc,
             },
             init::Monotonics(monotonic),
         )
@@ -511,7 +526,10 @@ mod app {
     }
 
     /// Read measurement results from the sensors. Re-schedule a measurement.
-    #[task(local = [supply_monitor, rn], shared = [debug, delay, sht, one_wire, ds18b20])]
+    #[task(
+        local = [supply_monitor, rn, pwr, scb, rtc],
+        shared = [debug, config, delay, sht, one_wire, ds18b20],
+    )]
     fn read_measurement_results(
         ctx: read_measurement_results::Context,
         measurement_plan: MeasurementPlan,
@@ -658,9 +676,40 @@ mod app {
             writeln!(ctx.shared.debug, "RN2483: Could not save config: {:?}", e).unwrap();
         });
 
-        // Re-schedule a measurement
-        // (TODO: Go to sleep here. For now, simulate 10s of sleep.)
-        writeln!(ctx.shared.debug, "Schedule new measurement in 10 s").unwrap();
-        start_measurements::spawn_after(10_000.millis()).unwrap();
+        // Sleep duration
+        let sleep_seconds = ctx.shared.config.wakeup_interval_seconds;
+
+        // Put RN2483 into sleep mode. Use twice the sleep duration, since it
+        // will be woken up by the STM32 (using the reset pin).
+        ctx.local
+            .rn
+            .sleep(Duration::from_secs(sleep_seconds as u64 * 2))
+            .expect("Could not put RN2483 to sleep");
+        writeln!(ctx.shared.debug, "RN2483: Going to sleep").unwrap();
+
+        // Schedule a wakeup by the RTC wakeup timer
+        let rtc = ctx.local.rtc;
+        rtc.enable_interrupts(RtcInterrupts {
+            wakeup_timer: true,
+            timestamp: false,
+            alarm_a: false,
+            alarm_b: false,
+        });
+        writeln!(
+            ctx.shared.debug,
+            "RTC: Scheduling wakeup in {} s",
+            sleep_seconds
+        )
+        .unwrap();
+        rtc.wakeup_timer().start(sleep_seconds);
+
+        // Go to sleep
+        let mut standby = ctx.local.pwr.standby_mode(ctx.local.scb);
+        writeln!(ctx.shared.debug, "Going to sleep",).unwrap();
+        ctx.shared.delay.delay_us(500); // Wait a short while so that serial message can be sent completely
+        loop {
+            standby.enter();
+            writeln!(ctx.shared.debug, "Unexpected wakeup from sleep?!",).unwrap();
+        }
     }
 }
