@@ -210,6 +210,21 @@ mod app {
             writeln!(debug, "==== 🚒 END PANIC 🚒 ====").ok();
         }
 
+        // Reset RN2xx3
+        writeln!(debug, "Init RN2483…").unwrap();
+        writeln!(debug, "RN2483: Hard reset…").unwrap();
+        let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
+        rn_reset_pin.set_low().expect("Could not set RN reset pin");
+        delay.delay_us(500);
+        rn_reset_pin.set_high().expect("Could not set RN reset pin");
+        delay.delay_ms(195); // 100ms until TX line is up, 85ms until version is sent, 10ms extra
+
+        // Clear hardware error flags
+        lpuart1.clear_errors();
+
+        // Initialize RN2xx3
+        let mut rn = rn2483_868(lpuart1);
+
         // Dump EEPROM config data
         if cfg!(feature = "dev") {
             writeln!(debug, "\nEEPROM contents at 0x0808_0000:").unwrap();
@@ -249,7 +264,19 @@ mod app {
             Config::from_slice(config_data)
         } {
             Ok(c) => c,
-            Err(e) => panic!("Error: Could not read config from EEPROM: {}", e),
+            Err(e) => {
+                writeln!(
+                    debug,
+                    "Cannot read config from EEPROM. Maybe no config has been written so far?"
+                )
+                .unwrap();
+                write!(debug, "To register this device:").unwrap();
+                match rn.hweui() {
+                    Ok(hweui) => writeln!(debug, " Hardware EUI: {}", hweui).unwrap(),
+                    Err(e) => writeln!(debug, " [Could not read hweui: {:?}]", e).unwrap(),
+                }
+                panic!("Error: Could not read config from EEPROM: {}", e)
+            }
         };
         writeln!(debug, "🔧 Loaded config (v{}) from EEPROM", config.version).unwrap();
         if cfg!(feature = "dev") {
@@ -341,21 +368,6 @@ mod app {
         sht.wakeup(&mut delay).unwrap_or_else(|e| {
             writeln!(debug, "SHTCx: Could not wake up sensor: {:?}", e).unwrap()
         });
-
-        // Reset RN2xx3
-        writeln!(debug, "Init RN2483…").unwrap();
-        writeln!(debug, "RN2483: Hard reset…").unwrap();
-        let mut rn_reset_pin = gpioa.pa4.into_push_pull_output();
-        rn_reset_pin.set_low().expect("Could not set RN reset pin");
-        delay.delay_us(500);
-        rn_reset_pin.set_high().expect("Could not set RN reset pin");
-        delay.delay_ms(195); // 100ms until TX line is up, 85ms until version is sent, 10ms extra
-
-        // Clear hardware error flags
-        lpuart1.clear_errors();
-
-        // Initialize RN2xx3
-        let mut rn = rn2483_868(lpuart1);
 
         // Show device info
         writeln!(debug, "RN2483: Device info").unwrap();
