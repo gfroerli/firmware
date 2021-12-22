@@ -587,7 +587,7 @@ const APP: () = {
             let length = message.encode(&mut buf);
 
             // Transmit
-            writeln!(ctx.resources.debug, "Transmitting measurement...").unwrap();
+            writeln!(ctx.resources.debug, "📣 Transmitting measurement...").unwrap();
             let tx_result = ctx.resources.rn.transmit_slice(
                 ConfirmationMode::Unconfirmed,
                 fport,
