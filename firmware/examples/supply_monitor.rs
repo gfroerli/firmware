@@ -7,7 +7,8 @@ use panic_persist as _;
 use core::fmt::Write;
 
 use cortex_m_rt::entry;
-use hal::{serial, time};
+use embedded_time::rate::Baud;
+use hal::serial;
 use stm32l0xx_hal as hal;
 use stm32l0xx_hal::prelude::*;
 
@@ -34,7 +35,7 @@ fn main() -> ! {
         gpioa.pa2.into_floating_input(),
         gpioa.pa3.into_floating_input(),
         hal::serial::Config {
-            baudrate: hal::time::Bps(9600),
+            baudrate: Baud(9600),
             wordlength: hal::serial::WordLength::DataBits8,
             parity: hal::serial::Parity::ParityNone,
             stopbits: hal::serial::StopBits::STOP1,
@@ -49,7 +50,7 @@ fn main() -> ! {
         gpiob.pb6.into_floating_input(),
         gpiob.pb7.into_floating_input(),
         serial::Config {
-            baudrate: time::Bps(57_600),
+            baudrate: Baud(57_600),
             wordlength: serial::WordLength::DataBits8,
             parity: serial::Parity::ParityNone,
             stopbits: serial::StopBits::STOP1,
@@ -58,7 +59,7 @@ fn main() -> ! {
     )
     .unwrap();
 
-    writeln!(serial, "Starting supply_monitor example");
+    writeln!(serial, "Starting supply_monitor example").unwrap();
 
     // Initialize supply monitor
     let adc = dp.ADC.constrain(&mut rcc);
@@ -100,8 +101,8 @@ fn main() -> ! {
         //supply_monitor.disable();
 
         led.set_high().unwrap();
-        delay.delay(hal::time::MicroSeconds(1_000_000));
+        delay.delay_ms(1_000u16);
         led.set_low().unwrap();
-        delay.delay(hal::time::MicroSeconds(1_000_000));
+        delay.delay_ms(1_000u16);
     }
 }

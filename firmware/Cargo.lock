@@ -226,6 +226,7 @@ version = "0.2.0"
 dependencies = [
  "bitfield",
  "cortex-m",
+ "cortex-m-rt",
  "cortex-m-rtic",
  "embedded-hal",
  "embedded-time",
