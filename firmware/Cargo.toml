@@ -17,10 +17,10 @@ gfroerli-common = { path = "../common" }
 
 bitfield = "0.13"
 cortex-m = "0.7" # Keep in sync with stm32l0xx-hal
-cortex-m-rt = "0.6.8" # Keep in sync with stm32l0xx-hal
-cortex-m-rtic = "0.5"
+cortex-m-rtic = "1.0.0"
 embedded-hal = { version = "0.2.3", features = ["unproven"] } # Keep in sync with stm32l0xx-hal
 embedded-time = "0.12" # Keep in sync with stm32l0xx-hal
+fugit = "0.3"
 one-wire-bus = "0.1.1"
 rn2xx3 = "0.2.1"
 stm32l0xx-hal = { version = "0.8.0", features = ["rt", "mcu-STM32L071KBTx", "rtc"] }
