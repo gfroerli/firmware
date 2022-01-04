@@ -12,8 +12,7 @@
 
 We use the following timers:
 
-- `SYST`: Used by RTIC for the scheduling system
-- `TIM6`: Used as a `Monotonic` implementation
+- `LPTIM`: Used as a `Monotonic` implementation for the RTIC scheduling system
 - `TIM7`: Used as a blocking delay provider for the device drivers
 
 
