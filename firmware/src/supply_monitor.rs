@@ -58,9 +58,20 @@ impl SupplyMonitor {
 
     /// Read the supply voltage (see `read_supply_raw` for details) and return
     /// the voltage in volts as `f32`.
-    pub fn read_supply(&mut self) -> Option<f32> {
+    pub fn read_supply_f32(&mut self) -> Option<f32> {
         let val = self.read_supply_raw()?;
         Some(Self::convert_input(val))
+    }
+
+    /// Read the supply voltage (see `read_supply_raw` for details) and return
+    /// the voltage in millivolts with 2 V offset as `U12`.
+    ///
+    /// To convert this back to volts, use the formula `val / 1000 + 2`.
+    pub fn read_supply_u12(&mut self) -> Option<U12> {
+        let val = self.read_supply_raw()?;
+        let volts = Self::convert_input(val);
+        let millivolts_with_offset = ((volts - 2.0) * 1000.0) as u16;
+        Some(U12::new(millivolts_with_offset))
     }
 
     /// Convert the raw ADC value to the resulting supply voltage
