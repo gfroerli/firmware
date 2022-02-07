@@ -633,7 +633,7 @@ mod app {
         writeln!(ctx.shared.debug).unwrap();
 
         if measurement_plan.should_transmit() {
-            let fport = 123;
+            let fport = 2;
 
             // Encode measurement
             let message = MeasurementMessage {
