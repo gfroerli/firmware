@@ -46,7 +46,7 @@ fn main() -> Result<()> {
 
     // Attach to a chip
     println!("Attaching chip");
-    let mut session = probe.attach("STM32L071KBTx")?;
+    let mut session = probe.attach_under_reset("STM32L071KBTx")?;
 
     // Memory map: We only include the EEPROM memory region. This way, we can
     // also prevent accidentally writing to flash.
