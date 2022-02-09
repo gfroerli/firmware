@@ -652,16 +652,17 @@ mod app {
                 fport,
                 &buf.0[0..length],
             );
-            if let Err(e) = &tx_result {
-                writeln!(
+            match tx_result {
+                Ok(None) => writeln!(ctx.shared.debug, "Uplink succeeded, no downlink").unwrap(),
+                Ok(Some(downlink)) => {
+                    writeln!(ctx.shared.debug, "Downlink: {:?}", downlink).unwrap()
+                }
+                Err(e) => writeln!(
                     ctx.shared.debug,
                     "Error: Transmitting LoRaWAN package failed: {:?}",
                     e
                 )
-                .unwrap();
-            }
-            if let Ok(Some(downlink)) = tx_result {
-                writeln!(ctx.shared.debug, "Downlink: {:?}", downlink).unwrap();
+                .unwrap(),
             }
         }
 
