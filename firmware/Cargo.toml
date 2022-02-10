@@ -17,7 +17,6 @@ gfroerli-common = { path = "../common" }
 
 bitfield = "0.13"
 cortex-m = "0.7" # Keep in sync with stm32l0xx-hal
-cortex-m-rt = "0.6.15"
 cortex-m-rtic = "1.0.0"
 embedded-hal = { version = "0.2.3", features = ["unproven"] } # Keep in sync with stm32l0xx-hal
 embedded-time = "0.12" # Keep in sync with stm32l0xx-hal
@@ -29,6 +28,7 @@ shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 
 [dev-dependencies]
 rstest = "0.11"
+cortex-m-rt = "0.6.15" # Keep in sync with stm32l0xx-hal. Used in example
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 panic-persist = { version = "0.3.0", features = ["utf8"] }
