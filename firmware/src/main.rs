@@ -563,7 +563,11 @@ mod app {
         }
 
         // Measure current supply voltage
-        let v_supply = ctx.local.supply_monitor.read_supply_u12();
+        let v_supply = if measurement_plan.measure_voltage {
+            ctx.local.supply_monitor.read_supply_u12()
+        } else {
+            None
+        };
 
         // Print results
         let mut first = true;
