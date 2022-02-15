@@ -28,6 +28,7 @@ shtcx = { git = "https://github.com/dbrgn/shtcx-rs", branch = "master" }
 
 [dev-dependencies]
 rstest = "0.11"
+cortex-m-rt = "0.6.15" # Keep in sync with stm32l0xx-hal. Used in example
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 panic-persist = { version = "0.3.0", features = ["utf8"] }
