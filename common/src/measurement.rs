@@ -1,4 +1,5 @@
 use bitfield::{bitfield, Bit, BitRange};
+use bitvec::prelude::*;
 
 #[derive(Copy, Clone, Default)]
 pub struct U12(u16);
@@ -27,6 +28,7 @@ pub struct MeasurementMessage {
 trait MeasurementValue {
     const SIZE: usize;
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
+    fn decode(data: &[u8], bit_index: &mut usize) -> Self;
 }
 
 impl MeasurementValue for U12 {
@@ -35,6 +37,12 @@ impl MeasurementValue for U12 {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
         *bit_index += Self::SIZE;
     }
+
+    fn decode(data: &[u8], bit_index: &mut usize) -> U12 {
+        let val: u16 = data.view_bits::<Msb0>()[*bit_index..*bit_index + Self::SIZE].load_le();
+        *bit_index += Self::SIZE;
+        U12(val)
+    }
 }
 
 impl MeasurementValue for u16 {
@@ -42,6 +50,12 @@ impl MeasurementValue for u16 {
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, *self);
         *bit_index += Self::SIZE;
+    }
+
+    fn decode(data: &[u8], bit_index: &mut usize) -> u16 {
+        let val: u16 = data.view_bits::<Msb0>()[*bit_index..*bit_index + Self::SIZE].load_le();
+        *bit_index += Self::SIZE;
+        val
     }
 }
 
@@ -98,6 +112,29 @@ impl MeasurementMessage {
             encoder.encode(3, &v_supply);
         }
         encoder.finish()
+    }
+
+    pub fn decode(data: &[u8]) -> MeasurementMessage {
+        let mut measurement_message = MeasurementMessage::default();
+        let data_mask = data[0];
+        let mut bit_index = 8;
+        if data_mask.bit(0) {
+            let val = U12::decode(data, &mut bit_index);
+            measurement_message.t_water = Some(val);
+        }
+        if data_mask.bit(1) {
+            let val = u16::decode(data, &mut bit_index);
+            measurement_message.t_inside = Some(val);
+        }
+        if data_mask.bit(2) {
+            let val = u16::decode(data, &mut bit_index);
+            measurement_message.rh_inside = Some(val);
+        }
+        if data_mask.bit(2) {
+            let val = U12::decode(data, &mut bit_index);
+            measurement_message.v_supply = Some(val);
+        }
+        measurement_message
     }
 }
 
