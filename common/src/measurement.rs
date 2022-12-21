@@ -1,5 +1,5 @@
 use bitfield::{bitfield, Bit, BitRange};
-use bitvec::prelude::*;
+use bitvec::{field::BitField, order::Msb0, view::BitView};
 
 #[derive(Copy, Clone, Default)]
 pub struct U12(u16);
@@ -33,13 +33,15 @@ trait MeasurementValue {
 
 impl MeasurementValue for U12 {
     const SIZE: usize = 12;
+
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
         *bit_index += Self::SIZE;
     }
 
     fn decode(data: &[u8], bit_index: &mut usize) -> U12 {
-        let val: u16 = data.view_bits::<Msb0>()[*bit_index..*bit_index + Self::SIZE].load_le();
+        let i = *bit_index;
+        let val: u16 = data.view_bits::<Msb0>()[i..i + Self::SIZE].load_be();
         *bit_index += Self::SIZE;
         U12(val)
     }
@@ -47,13 +49,15 @@ impl MeasurementValue for U12 {
 
 impl MeasurementValue for u16 {
     const SIZE: usize = 16;
+
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, *self);
         *bit_index += Self::SIZE;
     }
 
     fn decode(data: &[u8], bit_index: &mut usize) -> u16 {
-        let val: u16 = data.view_bits::<Msb0>()[*bit_index..*bit_index + Self::SIZE].load_le();
+        let i = *bit_index;
+        let val: u16 = data.view_bits::<Msb0>()[i..i + Self::SIZE].load_be();
         *bit_index += Self::SIZE;
         val
     }
