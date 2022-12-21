@@ -1,6 +1,7 @@
 use bitfield::{bitfield, Bit, BitRange};
+use bitvec::{field::BitField, order::Msb0, view::BitView};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct U12(u16);
 
 impl U12 {
@@ -16,7 +17,7 @@ impl U12 {
 
 pub const MAX_MSG_LEN: usize = 8;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct MeasurementMessage {
     pub t_water: Option<U12>,
     pub t_inside: Option<u16>,
@@ -27,21 +28,38 @@ pub struct MeasurementMessage {
 trait MeasurementValue {
     const SIZE: usize;
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize);
+    fn decode(data: &[u8], bit_index: &mut usize) -> Self;
 }
 
 impl MeasurementValue for U12 {
     const SIZE: usize = 12;
+
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, self.0);
         *bit_index += Self::SIZE;
+    }
+
+    fn decode(data: &[u8], bit_index: &mut usize) -> U12 {
+        let i = *bit_index;
+        let val: u16 = data.view_bits::<Msb0>()[i..i + Self::SIZE].load_be();
+        *bit_index += Self::SIZE;
+        U12(val)
     }
 }
 
 impl MeasurementValue for u16 {
     const SIZE: usize = 16;
+
     fn encode(&self, output: &mut EncodedMeasurement<[u8; MAX_MSG_LEN]>, bit_index: &mut usize) {
         output.set_bit_range(*bit_index + Self::SIZE - 1, *bit_index, *self);
         *bit_index += Self::SIZE;
+    }
+
+    fn decode(data: &[u8], bit_index: &mut usize) -> u16 {
+        let i = *bit_index;
+        let val: u16 = data.view_bits::<Msb0>()[i..i + Self::SIZE].load_be();
+        *bit_index += Self::SIZE;
+        val
     }
 }
 
@@ -99,6 +117,29 @@ impl MeasurementMessage {
         }
         encoder.finish()
     }
+
+    pub fn decode(data: &[u8]) -> MeasurementMessage {
+        let mut measurement_message = MeasurementMessage::default();
+        let data_mask = data[0];
+        let mut bit_index = 8;
+        if data_mask.bit(0) {
+            let val = U12::decode(data, &mut bit_index);
+            measurement_message.t_water = Some(val);
+        }
+        if data_mask.bit(1) {
+            let val = u16::decode(data, &mut bit_index);
+            measurement_message.t_inside = Some(val);
+        }
+        if data_mask.bit(2) {
+            let val = u16::decode(data, &mut bit_index);
+            measurement_message.rh_inside = Some(val);
+        }
+        if data_mask.bit(3) {
+            let val = U12::decode(data, &mut bit_index);
+            measurement_message.v_supply = Some(val);
+        }
+        measurement_message
+    }
 }
 
 #[cfg(test)]
@@ -108,13 +149,13 @@ mod tests {
     #[test]
     fn test_measurement_encode_empty() {
         let input = MeasurementMessage::default();
-        let expeced_result = [0];
+        let expected_result = [0];
 
         let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
         let length = input.encode(&mut output) as usize;
 
         assert_eq!(length, 1);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0[0..length], expected_result);
     }
 
     #[test]
@@ -123,7 +164,7 @@ mod tests {
             t_water: Some(U12(0b0000_0101_1010)),
             ..MeasurementMessage::default()
         };
-        let expeced_result = [1, 0b0000_0101, 0b1010_0000];
+        let expected_result = [1, 0b0000_0101, 0b1010_0000];
         let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
 
         let length = input.encode(&mut output) as usize;
@@ -133,7 +174,7 @@ mod tests {
         }
         println!();
         assert_eq!(length, 3);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0[0..length], expected_result);
     }
 
     #[test]
@@ -144,7 +185,7 @@ mod tests {
             rh_inside: Some(0b0011_1100_0101_1010),
             v_supply: Some(U12(0b1111_1010_0101)),
         };
-        let expeced_result = [
+        let expected_result = [
             0x0F,
             0b0000_0101,
             0b1010_1100,
@@ -163,6 +204,52 @@ mod tests {
         }
         println!();
         assert_eq!(length, MAX_MSG_LEN);
-        assert_eq!(output.0[0..length], expeced_result);
+        assert_eq!(output.0[0..length], expected_result);
+    }
+
+    #[test]
+    fn test_measurement_decode_t_water() {
+        let message_raw = vec![
+            // Bitmask 00000001: Only t_water
+            0b0000_0001,
+            // Value: 0000_0101_1010 = 90
+            0b0000_0101,
+            0b1010_0000,
+        ];
+        let message = MeasurementMessage::decode(&message_raw);
+        assert_eq!(message.t_water, Some(U12(0b0000_0101_1010)));
+    }
+
+    #[test]
+    fn test_measurement_decode_t_inside() {
+        let message_raw = vec![
+            // Bitmask 00000010: Only t_inside
+            0b0000_0010,
+            // Value: 0000_0101_1010_0000 = 1440
+            0b0000_0101,
+            0b1010_0000,
+        ];
+        let message = MeasurementMessage::decode(&message_raw);
+        assert_eq!(message.t_inside, Some(0b0000_0101_1010_0000));
+    }
+
+    #[test]
+    fn test_measurement_encode_decode_roundtrip() {
+        // Source message
+        let input = MeasurementMessage {
+            t_water: Some(U12(0b0000_0101_1010)),
+            t_inside: Some(0b1100_0011_1010_0101),
+            rh_inside: Some(0b0011_1100_0101_1010),
+            v_supply: Some(U12(0b1111_1010_0101)),
+        };
+
+        // Encode
+        let mut output = EncodedMeasurement([0u8; MAX_MSG_LEN]);
+        let length = input.encode(&mut output) as usize;
+        let encoded_slice = &output.0[..length];
+
+        // Decode
+        let decoded = MeasurementMessage::decode(encoded_slice);
+        assert_eq!(decoded, input);
     }
 }
