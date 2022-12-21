@@ -130,7 +130,7 @@ impl MeasurementMessage {
             let val = u16::decode(data, &mut bit_index);
             measurement_message.rh_inside = Some(val);
         }
-        if data_mask.bit(2) {
+        if data_mask.bit(3) {
             let val = U12::decode(data, &mut bit_index);
             measurement_message.v_supply = Some(val);
         }
